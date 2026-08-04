@@ -7,14 +7,20 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen overflow-hidden bg-[#F6F8FB]">
+      {/* Menu lateral */}
       <Sidebar />
 
-      <div className="flex-1 flex flex-col">
+      {/* Área principal */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Topo */}
         <Header />
 
-        <main className="flex-1 p-8 overflow-auto">
-          {children}
+        {/* Conteúdo */}
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="px-5 py-6 sm:px-6 lg:px-8 lg:py-7">
+            {children}
+          </div>
         </main>
       </div>
     </div>
