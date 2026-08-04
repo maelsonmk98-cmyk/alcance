@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Package,
+  RefreshCw,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Produto = {
@@ -131,125 +139,249 @@ export default function ProductsTable() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm">
-      <div className="flex justify-between items-center p-6 border-b gap-4">
-        <input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          className="border rounded-xl p-3 w-96"
-          placeholder="Pesquisar por SKU ou nome..."
-        />
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+      {/* Barra superior */}
+      <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-[380px]">
+          <Search
+            size={17}
+            strokeWidth={1.8}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-10 pr-4 text-[12px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#071E49]/20 focus:bg-white focus:ring-4 focus:ring-[#071E49]/[0.04]"
+            placeholder="Pesquisar por SKU ou nome..."
+          />
+        </div>
 
         <Link
           href="/produtos/novo"
-          className="bg-[#081E4A] text-white px-6 py-3 rounded-xl hover:bg-blue-900 transition"
+          className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#F47B20] px-4 text-[12px] font-semibold text-white shadow-[0_4px_12px_rgba(244,123,32,0.16)] transition-all hover:-translate-y-0.5 hover:bg-[#E96F17] hover:shadow-[0_7px_18px_rgba(244,123,32,0.22)]"
         >
-          + Novo Produto
+          <Plus size={15} strokeWidth={2.5} />
+          Novo Produto
         </Link>
       </div>
 
+      {/* Mensagem de erro */}
       {erro && (
-        <div className="mx-6 mt-6 p-4 rounded-xl bg-red-50 text-red-600">
-          {erro}
+        <div className="mx-5 mt-5 flex items-center justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[12px] text-red-600">
+          <span>{erro}</span>
+
+          <button
+            type="button"
+            onClick={carregarProdutos}
+            className="flex shrink-0 items-center gap-1.5 font-semibold hover:underline"
+          >
+            <RefreshCw size={13} />
+            Tentar novamente
+          </button>
         </div>
       )}
 
       {carregando ? (
-        <div className="p-6 text-gray-500">
-          Carregando produtos...
+        <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 p-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#071E49]/[0.06]">
+            <RefreshCw
+              size={18}
+              className="animate-spin text-[#071E49]"
+            />
+          </div>
+
+          <p className="text-[12px] text-slate-400">
+            Carregando produtos...
+          </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-4">SKU</th>
-                <th className="text-left">Produto</th>
-                <th className="text-left">Categoria</th>
-                <th className="text-left">Custo</th>
-                <th className="text-left">Venda</th>
-                <th className="text-left">Margem</th>
-                <th className="text-center">Ações</th>
-              </tr>
-            </thead>
+        <>
+          {/* Cabeçalho da tabela */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[850px]">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50 text-left">
+                  <th className="px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Produto
+                  </th>
 
-            <tbody>
-              {produtosFiltrados.map((produto) => {
-                const margem = calcularMargem(produto);
+                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    SKU
+                  </th>
 
-                return (
-                  <tr
-                    key={produto.id}
-                    className="border-b hover:bg-gray-50"
-                  >
-                    <td className="p-4">
-                      {produto.sku || "-"}
-                    </td>
+                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Categoria
+                  </th>
 
-                    <td>
-                      {produto.nome || "-"}
-                    </td>
+                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Custo
+                  </th>
 
-                    <td>
-                      {produto.categoria || "-"}
-                    </td>
+                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Venda
+                  </th>
 
-                    <td>
-                      {formatarMoeda(produto.custo)}
-                    </td>
+                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Margem
+                  </th>
 
-                    <td>
-                      {formatarMoeda(produto.preco_venda)}
-                    </td>
+                  <th className="px-6 py-3.5 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                    Ações
+                  </th>
+                </tr>
+              </thead>
 
-                    <td
-                      className={
-                        margem >= 0
-                          ? "text-green-600 font-semibold"
-                          : "text-red-600 font-semibold"
-                      }
+              <tbody>
+                {produtosFiltrados.map((produto) => {
+                  const margem = calcularMargem(produto);
+
+                  return (
+                    <tr
+                      key={produto.id}
+                      className="group border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50/60"
                     >
-                      {margem.toFixed(2)}%
-                    </td>
+                      {/* Produto */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#071E49]/[0.06]">
+                            <Package
+                              size={16}
+                              strokeWidth={1.8}
+                              className="text-[#071E49]"
+                            />
+                          </div>
 
-                    <td className="text-center">
-                      <Link
-                        href={`/produtos/editar/${produto.id}`}
-                        className="mr-3"
-                        title="Editar produto"
-                      >
-                        ✏️
-                      </Link>
+                          <div className="min-w-0">
+                            <p className="max-w-[250px] truncate text-[12px] font-semibold text-slate-800">
+                              {produto.nome || "Sem nome"}
+                            </p>
 
-                      <button
-                        type="button"
-                        title="Excluir produto"
-                        disabled={excluindo === produto.id}
-                        onClick={() =>
-                          excluirProduto(produto.id, produto.nome)
-                        }
-                        className="disabled:opacity-50"
-                      >
-                        {excluindo === produto.id ? "⏳" : "🗑️"}
-                      </button>
+                            <p className="mt-0.5 text-[10px] text-slate-400">
+                              Produto cadastrado
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* SKU */}
+                      <td className="px-4 py-4">
+                        <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] font-semibold text-slate-500">
+                          {produto.sku || "-"}
+                        </span>
+                      </td>
+
+                      {/* Categoria */}
+                      <td className="px-4 py-4">
+                        <span className="text-[11px] font-medium text-slate-500">
+                          {produto.categoria || "-"}
+                        </span>
+                      </td>
+
+                      {/* Custo */}
+                      <td className="px-4 py-4 text-[12px] text-slate-500">
+                        {formatarMoeda(produto.custo)}
+                      </td>
+
+                      {/* Venda */}
+                      <td className="px-4 py-4 text-[12px] font-semibold text-slate-700">
+                        {formatarMoeda(produto.preco_venda)}
+                      </td>
+
+                      {/* Margem */}
+                      <td className="px-4 py-4">
+                        <span
+                          className={[
+                            "inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ring-inset",
+                            margem >= 0
+                              ? "bg-emerald-50 text-emerald-600 ring-emerald-500/10"
+                              : "bg-red-50 text-red-600 ring-red-500/10",
+                          ].join(" ")}
+                        >
+                          {margem.toFixed(2)}%
+                        </span>
+                      </td>
+
+                      {/* Ações */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-1">
+                          <Link
+                            href={`/produtos/editar/${produto.id}`}
+                            title="Editar produto"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[#071E49]/[0.06] hover:text-[#071E49]"
+                          >
+                            <Pencil size={14} strokeWidth={1.9} />
+                          </Link>
+
+                          <button
+                            type="button"
+                            title="Excluir produto"
+                            disabled={excluindo === produto.id}
+                            onClick={() =>
+                              excluirProduto(produto.id, produto.nome)
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {excluindo === produto.id ? (
+                              <RefreshCw
+                                size={14}
+                                className="animate-spin"
+                              />
+                            ) : (
+                              <Trash2 size={14} strokeWidth={1.9} />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {produtosFiltrados.length === 0 && (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+                          <Package
+                            size={20}
+                            className="text-slate-400"
+                          />
+                        </div>
+
+                        <p className="mt-4 text-sm font-semibold text-slate-700">
+                          Nenhum produto encontrado
+                        </p>
+
+                        <p className="mt-1 max-w-[300px] text-[11px] leading-5 text-slate-400">
+                          Tente pesquisar por outro SKU ou nome de produto.
+                        </p>
+                      </div>
                     </td>
                   </tr>
-                );
-              })}
+                )}
+              </tbody>
+            </table>
+          </div>
 
-              {produtosFiltrados.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="text-center p-8 text-gray-500"
-                  >
-                    Nenhum produto encontrado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+          {/* Rodapé */}
+          <div className="flex flex-col gap-2 border-t border-slate-100 px-6 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[10px] text-slate-400">
+              {produtosFiltrados.length}{" "}
+              {produtosFiltrados.length === 1
+                ? "produto encontrado"
+                : "produtos encontrados"}
+            </p>
+
+            <button
+              type="button"
+              onClick={carregarProdutos}
+              className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 transition hover:text-[#071E49]"
+            >
+              <RefreshCw size={12} />
+              Atualizar lista
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

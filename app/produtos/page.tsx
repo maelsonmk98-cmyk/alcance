@@ -4,14 +4,21 @@ import ProductsTable from "@/components/produtos/ProductsTable";
 export default function ProdutosPage() {
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="mx-auto max-w-[1600px] space-y-7">
+        {/* Cabeçalho */}
         <div>
-          <h1 className="text-3xl font-bold">
+          <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400">
+            <span>Alcance</span>
+            <span>/</span>
+            <span className="text-slate-600">Produtos</span>
+          </div>
+
+          <h1 className="mt-3 text-3xl font-bold tracking-[-0.03em] text-slate-900">
             Produtos
           </h1>
 
-          <p className="text-gray-500">
-            Gerencie seus produtos cadastrados.
+          <p className="mt-1.5 text-sm text-slate-500">
+            Gerencie seus produtos, custos, preços e margens.
           </p>
         </div>
 
