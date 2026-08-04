@@ -1,29 +1,84 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ArrowUpRight, Package } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+
+type Produto = {
+  id: number;
+  sku: string | null;
+  nome: string | null;
+  custo: number | null;
+  preco_venda: number | null;
+  comissao: number | null;
+  impostos: number | null;
+  embalagem: number | null;
+  frete: number | null;
+  outras_despesas: number | null;
+};
 
 export default function ProductTable() {
-  const produtos = [
-    {
-      sku: "ALC-001",
-      nome: "Headset Gamer HyperX Cloud II",
-      custo: "R$ 350,00",
-      venda: "R$ 599,90",
-      margem: "35,42%",
-    },
-    {
-      sku: "ALC-002",
-      nome: "Teclado Redragon K552",
-      custo: "R$ 210,00",
-      venda: "R$ 399,90",
-      margem: "33,18%",
-    },
-    {
-      sku: "ALC-003",
-      nome: "Mouse Logitech G403",
-      custo: "R$ 180,00",
-      venda: "R$ 329,90",
-      margem: "31,52%",
-    },
-  ];
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    async function carregarProdutos() {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select(
+          "id, sku, nome, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
+        )
+        .order("id", { ascending: false })
+        .limit(5);
+
+      if (error) {
+        console.error("Erro ao carregar produtos recentes:", error);
+        setProdutos([]);
+      } else {
+        setProdutos(data || []);
+      }
+
+      setCarregando(false);
+    }
+
+    carregarProdutos();
+  }, []);
+
+  function formatarMoeda(valor: number | null) {
+    return Number(valor ?? 0).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
+  function calcularMargem(produto: Produto) {
+    const venda = Number(produto.preco_venda ?? 0);
+    const custo = Number(produto.custo ?? 0);
+    const comissao = Number(produto.comissao ?? 0);
+    const impostos = Number(produto.impostos ?? 0);
+    const embalagem = Number(produto.embalagem ?? 0);
+    const frete = Number(produto.frete ?? 0);
+    const outrasDespesas = Number(produto.outras_despesas ?? 0);
+
+    if (venda <= 0) {
+      return 0;
+    }
+
+    const valorComissao = venda * (comissao / 100);
+    const valorImpostos = venda * (impostos / 100);
+
+    const lucro =
+      venda -
+      custo -
+      valorComissao -
+      valorImpostos -
+      embalagem -
+      frete -
+      outrasDespesas;
+
+    return (lucro / venda) * 100;
+  }
 
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
@@ -49,78 +104,110 @@ export default function ProductTable() {
           </p>
         </div>
 
-        <button
-          type="button"
+        <Link
+          href="/produtos"
           className="hidden items-center gap-1.5 rounded-lg px-2.5 py-2 text-[11px] font-semibold text-[#071E49] transition hover:bg-slate-50 sm:flex"
         >
           Ver todos
           <ArrowUpRight size={13} />
-        </button>
+        </Link>
       </div>
 
-      {/* Tabela */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[650px]">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/50 text-left">
-              <th className="px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                SKU
-              </th>
+      {/* Carregando */}
+      {carregando ? (
+        <div className="px-6 py-10 text-center text-xs text-slate-400">
+          Carregando produtos...
+        </div>
+      ) : produtos.length === 0 ? (
+        <div className="px-6 py-10 text-center">
+          <Package
+            size={28}
+            className="mx-auto text-slate-300"
+          />
 
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                Produto
-              </th>
+          <p className="mt-3 text-sm font-semibold text-slate-600">
+            Nenhum produto cadastrado
+          </p>
 
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                Custo
-              </th>
+          <p className="mt-1 text-xs text-slate-400">
+            Cadastre seu primeiro produto para ele aparecer aqui.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[650px]">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/50 text-left">
+                <th className="px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  SKU
+                </th>
 
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                Venda
-              </th>
+                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Produto
+                </th>
 
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                Margem
-              </th>
-            </tr>
-          </thead>
+                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Custo
+                </th>
 
-          <tbody>
-            {produtos.map((produto) => (
-              <tr
-                key={produto.sku}
-                className="group border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50/70"
-              >
-                <td className="px-6 py-4">
-                  <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] font-semibold text-slate-500">
-                    {produto.sku}
-                  </span>
-                </td>
+                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Venda
+                </th>
 
-                <td className="px-4 py-4 pr-6">
-                  <p className="max-w-[280px] truncate text-[12px] font-semibold text-slate-800">
-                    {produto.nome}
-                  </p>
-                </td>
-
-                <td className="px-4 py-4 text-[12px] text-slate-500">
-                  {produto.custo}
-                </td>
-
-                <td className="px-4 py-4 text-[12px] font-semibold text-slate-700">
-                  {produto.venda}
-                </td>
-
-                <td className="px-4 py-4">
-                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-600 ring-1 ring-inset ring-emerald-500/10">
-                    {produto.margem}
-                  </span>
-                </td>
+                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Margem
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+
+            <tbody>
+              {produtos.map((produto) => {
+                const margem = calcularMargem(produto);
+
+                return (
+                  <tr
+                    key={produto.id}
+                    className="group border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50/70"
+                  >
+                    <td className="px-6 py-4">
+                      <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] font-semibold text-slate-500">
+                        {produto.sku || "-"}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-4 pr-6">
+                      <p className="max-w-[280px] truncate text-[12px] font-semibold text-slate-800">
+                        {produto.nome || "Produto sem nome"}
+                      </p>
+                    </td>
+
+                    <td className="px-4 py-4 text-[12px] text-slate-500">
+                      {formatarMoeda(produto.custo)}
+                    </td>
+
+                    <td className="px-4 py-4 text-[12px] font-semibold text-slate-700">
+                      {formatarMoeda(produto.preco_venda)}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <span
+                        className={[
+                          "inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ring-inset",
+                          margem >= 0
+                            ? "bg-emerald-50 text-emerald-600 ring-emerald-500/10"
+                            : "bg-red-50 text-red-600 ring-red-500/10",
+                        ].join(" ")}
+                      >
+                        {margem.toFixed(2)}%
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Rodapé */}
       <div className="border-t border-slate-100 px-6 py-3.5">
