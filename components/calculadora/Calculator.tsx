@@ -1,6 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Search,
+  Package,
+  DollarSign,
+  Percent,
+  Truck,
+  Box,
+  Receipt,
+  Wallet,
+  TrendingUp,
+  RotateCcw,
+  Calculator as CalculatorIcon,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Produto = {
@@ -17,12 +30,19 @@ type Produto = {
   outras_despesas: number | null;
 };
 
+type Modo = "produto" | "manual";
+
 export default function Calculator() {
+  const [modo, setModo] = useState<Modo>("produto");
+
   const [sku, setSku] = useState("");
   const [produto, setProduto] = useState<Produto | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [erro, setErro] = useState("");
 
+  const [nomeManual, setNomeManual] = useState("");
+
+  const [custo, setCusto] = useState(0);
   const [precoVenda, setPrecoVenda] = useState(0);
   const [comissao, setComissao] = useState(0);
   const [tarifaFixa, setTarifaFixa] = useState(6.5);
@@ -68,6 +88,7 @@ export default function Calculator() {
 
     setProduto(data);
 
+    setCusto(Number(data.custo ?? 0));
     setPrecoVenda(Number(data.preco_venda ?? 0));
     setComissao(Number(data.comissao ?? 0));
     setImpostos(Number(data.impostos ?? 0));
@@ -78,7 +99,31 @@ export default function Calculator() {
     setBuscando(false);
   }
 
-  const custo = Number(produto?.custo ?? 0);
+  function ativarModoManual() {
+    setModo("manual");
+    setProduto(null);
+    setErro("");
+  }
+
+  function ativarModoProduto() {
+    setModo("produto");
+    setErro("");
+  }
+
+  function limparCalculadora() {
+    setSku("");
+    setProduto(null);
+    setErro("");
+    setNomeManual("");
+    setCusto(0);
+    setPrecoVenda(0);
+    setComissao(0);
+    setTarifaFixa(6.5);
+    setImpostos(0);
+    setFrete(0);
+    setEmbalagem(0);
+    setOutrasDespesas(0);
+  }
 
   const valorComissao = precoVenda * (comissao / 100);
   const valorImpostos = precoVenda * (impostos / 100);
@@ -94,14 +139,19 @@ export default function Calculator() {
     outrasDespesas;
 
   const margem =
-    precoVenda > 0
-      ? (lucro / precoVenda) * 100
-      : 0;
+    precoVenda > 0 ? (lucro / precoVenda) * 100 : 0;
 
   const roi =
-    custo > 0
-      ? (lucro / custo) * 100
-      : 0;
+    custo > 0 ? (lucro / custo) * 100 : 0;
+
+  const totalCustos =
+    custo +
+    valorComissao +
+    tarifaFixa +
+    valorImpostos +
+    frete +
+    embalagem +
+    outrasDespesas;
 
   function formatarMoeda(valor: number) {
     return valor.toLocaleString("pt-BR", {
@@ -110,117 +160,351 @@ export default function Calculator() {
     });
   }
 
+  function campoClasse() {
+    return "h-11 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#071E49]/20 focus:bg-white focus:ring-4 focus:ring-[#071E49]/[0.04]";
+  }
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6 space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">
-          🧮 Calculadora de Custos
-        </h2>
+    <div className="space-y-6">
+      {/* Modo da calculadora */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">
+            Como deseja calcular?
+          </h2>
 
-        <p className="text-gray-500 mt-1">
-          Busque um produto pelo SKU para calcular sua margem.
-        </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Use um produto cadastrado ou faça uma simulação manual.
+          </p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={ativarModoProduto}
+            className={[
+              "rounded-xl border p-4 text-left transition",
+              modo === "produto"
+                ? "border-[#F47B20] bg-orange-50/60"
+                : "border-slate-200 hover:bg-slate-50",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#071E49]/[0.06]">
+                <Search
+                  size={18}
+                  className="text-[#071E49]"
+                />
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-slate-800">
+                  Produto cadastrado
+                </p>
+
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  Buscar automaticamente pelo SKU.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={ativarModoManual}
+            className={[
+              "rounded-xl border p-4 text-left transition",
+              modo === "manual"
+                ? "border-[#F47B20] bg-orange-50/60"
+                : "border-slate-200 hover:bg-slate-50",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#071E49]/[0.06]">
+                <CalculatorIcon
+                  size={18}
+                  className="text-[#071E49]"
+                />
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-slate-800">
+                  Cálculo manual
+                </p>
+
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  Calcule sem cadastrar um produto.
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
       </div>
 
-      <div className="flex gap-3">
-        <input
-          type="text"
-          value={sku}
-          onChange={(e) => setSku(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              buscarProduto();
-            }
-          }}
-          placeholder="Digite o SKU..."
-          className="border rounded-xl px-4 py-3 flex-1"
-        />
+      {/* Busca por SKU */}
+      {modo === "produto" && (
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end">
+            <div className="flex-1">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#071E49]/[0.06]">
+                  <Search
+                    size={16}
+                    className="text-[#071E49]"
+                  />
+                </div>
 
-        <button
-          type="button"
-          onClick={buscarProduto}
-          disabled={buscando}
-          className="bg-[#081E4A] text-white px-6 py-3 rounded-xl hover:bg-blue-900 transition disabled:opacity-50"
-        >
-          {buscando ? "Buscando..." : "Buscar"}
-        </button>
-      </div>
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Buscar produto
+                  </h2>
 
-      {erro && (
-        <div className="p-4 rounded-xl bg-red-50 text-red-600">
-          {erro}
+                  <p className="text-[11px] text-slate-400">
+                    Informe o SKU para carregar os dados cadastrados.
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <Search
+                  size={17}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="text"
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      buscarProduto();
+                    }
+                  }}
+                  placeholder="Digite o SKU do produto..."
+                  className={`${campoClasse()} pl-10`}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={buscarProduto}
+              disabled={buscando}
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F47B20] px-6 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(244,123,32,0.16)] transition-all hover:bg-[#E96F17] hover:shadow-[0_7px_18px_rgba(244,123,32,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Search size={16} />
+              {buscando ? "Buscando..." : "Buscar produto"}
+            </button>
+          </div>
+
+          {erro && (
+            <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-medium text-red-600">
+              {erro}
+            </div>
+          )}
         </div>
       )}
 
-      {produto && (
-        <>
-          <div className="border rounded-xl p-5">
-            <h3 className="font-semibold text-lg">
-              {produto.nome || "Produto sem nome"}
-            </h3>
+      {/* Informações do cálculo manual */}
+      {modo === "manual" && (
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#071E49]/[0.06]">
+              <CalculatorIcon
+                size={18}
+                className="text-[#071E49]"
+              />
+            </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 text-sm">
-              <div>
-                <span className="text-gray-500">SKU</span>
-                <p className="font-medium">
-                  {produto.sku || "-"}
-                </p>
-              </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Cálculo manual
+              </h2>
 
-              <div>
-                <span className="text-gray-500">Categoria</span>
-                <p className="font-medium">
-                  {produto.categoria || "-"}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-gray-500">
-                  Custo do produto
-                </span>
-                <p className="font-medium">
-                  {formatarMoeda(custo)}
-                </p>
-              </div>
+              <p className="text-[11px] text-slate-400">
+                Preencha os valores abaixo para fazer uma simulação.
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Preço de Venda
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
+                Nome do produto
+                <span className="ml-1 font-normal text-slate-400">
+                  (opcional)
+                </span>
               </label>
 
               <input
-                type="number"
-                step="0.01"
-                value={precoVenda}
-                onChange={(e) =>
-                  setPrecoVenda(Number(e.target.value))
-                }
-                className="border rounded-xl px-4 py-3 w-full"
+                type="text"
+                value={nomeManual}
+                onChange={(e) => setNomeManual(e.target.value)}
+                placeholder="Ex.: Headset Gamer"
+                className={campoClasse()}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
+                SKU
+                <span className="ml-1 font-normal text-slate-400">
+                  (opcional)
+                </span>
+              </label>
+
+              <input
+                type="text"
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                placeholder="Ex.: ALC-001"
+                className={campoClasse()}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Produto selecionado */}
+      {modo === "produto" && produto && (
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#071E49]/[0.06]">
+                <Package
+                  size={21}
+                  className="text-[#071E49]"
+                />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+                  Produto selecionado
+                </p>
+
+                <h2 className="mt-1 truncate text-lg font-bold tracking-tight text-slate-900">
+                  {produto.nome || "Produto sem nome"}
+                </h2>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={limparCalculadora}
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+            >
+              <RotateCcw size={14} />
+              Limpar
+            </button>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 md:grid-cols-3">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                SKU
+              </p>
+
+              <p className="mt-1 text-xs font-semibold text-slate-700">
+                {produto.sku || "-"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                Categoria
+              </p>
+
+              <p className="mt-1 text-xs font-semibold text-slate-700">
+                {produto.categoria || "-"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                Custo do produto
+              </p>
+
+              <p className="mt-1 text-xs font-bold text-slate-800">
+                {formatarMoeda(custo)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dados da operação */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {/* Venda */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+              <DollarSign
+                size={17}
+                className="text-blue-600"
+              />
+            </div>
+
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Dados da venda
+              </h2>
+
+              <p className="text-[11px] text-slate-400">
+                Configure os valores da operação.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
+                Preço de venda
+              </label>
+
+              <div className="relative">
+                <DollarSign
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="number"
+                  step="0.01"
+                  value={precoVenda}
+                  onChange={(e) =>
+                    setPrecoVenda(Number(e.target.value))
+                  }
+                  className={`${campoClasse()} pl-9`}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                 Comissão (%)
               </label>
 
-              <input
-                type="number"
-                step="0.01"
-                value={comissao}
-                onChange={(e) =>
-                  setComissao(Number(e.target.value))
-                }
-                className="border rounded-xl px-4 py-3 w-full"
-              />
+              <div className="relative">
+                <Percent
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="number"
+                  step="0.01"
+                  value={comissao}
+                  onChange={(e) =>
+                    setComissao(Number(e.target.value))
+                  }
+                  className={`${campoClasse()} pl-9`}
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Tarifa Fixa
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
+                Tarifa fixa
               </label>
 
               <input
@@ -230,16 +514,57 @@ export default function Calculator() {
                 onChange={(e) =>
                   setTarifaFixa(Number(e.target.value))
                 }
-                className="border rounded-xl px-4 py-3 w-full"
+                className={campoClasse()}
               />
 
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="mt-1 text-[10px] text-slate-400">
                 Valor padrão: R$ 6,50
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
+                Custo do produto
+              </label>
+
+              <input
+                type="number"
+                step="0.01"
+                value={custo}
+                onChange={(e) =>
+                  setCusto(Number(e.target.value))
+                }
+                className={campoClasse()}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Outros custos */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+              <Wallet
+                size={17}
+                className="text-orange-500"
+              />
+            </div>
+
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Outros custos
+              </h2>
+
+              <p className="text-[11px] text-slate-400">
+                Despesas adicionais da operação.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <Percent size={12} />
                 Impostos (%)
               </label>
 
@@ -250,12 +575,13 @@ export default function Calculator() {
                 onChange={(e) =>
                   setImpostos(Number(e.target.value))
                 }
-                className="border rounded-xl px-4 py-3 w-full"
+                className={campoClasse()}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <Truck size={12} />
                 Frete
               </label>
 
@@ -266,12 +592,13 @@ export default function Calculator() {
                 onChange={(e) =>
                   setFrete(Number(e.target.value))
                 }
-                className="border rounded-xl px-4 py-3 w-full"
+                className={campoClasse()}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <Box size={12} />
                 Embalagem
               </label>
 
@@ -282,13 +609,14 @@ export default function Calculator() {
                 onChange={(e) =>
                   setEmbalagem(Number(e.target.value))
                 }
-                className="border rounded-xl px-4 py-3 w-full"
+                className={campoClasse()}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Outras Despesas
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <Receipt size={12} />
+                Outras despesas
               </label>
 
               <input
@@ -298,62 +626,172 @@ export default function Calculator() {
                 onChange={(e) =>
                   setOutrasDespesas(Number(e.target.value))
                 }
-                className="border rounded-xl px-4 py-3 w-full"
+                className={campoClasse()}
               />
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-xl bg-gray-50 p-5">
-              <p className="text-sm text-gray-500">
-                Lucro Líquido
-              </p>
-
-              <p
-                className={`text-2xl font-bold ${
-                  lucro >= 0
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
-                {formatarMoeda(lucro)}
-              </p>
+      {/* Resultado */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
+              <CalculatorIcon
+                size={17}
+                className="text-emerald-600"
+              />
             </div>
 
-            <div className="rounded-xl bg-gray-50 p-5">
-              <p className="text-sm text-gray-500">
-                Margem
-              </p>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Resultado da análise
+              </h2>
 
-              <p
-                className={`text-2xl font-bold ${
-                  margem >= 0
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
-                {margem.toFixed(2)}%
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 p-5">
-              <p className="text-sm text-gray-500">
-                ROI
-              </p>
-
-              <p
-                className={`text-2xl font-bold ${
-                  roi >= 0
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
-                {roi.toFixed(2)}%
+              <p className="text-[11px] text-slate-400">
+                Resultado calculado com os valores informados.
               </p>
             </div>
           </div>
-        </>
-      )}
+
+          <button
+            type="button"
+            onClick={limparCalculadora}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+          >
+            <RotateCcw size={14} />
+            Limpar
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-medium text-slate-500">
+                Total de custos
+              </p>
+
+              <Wallet
+                size={16}
+                className="text-slate-400"
+              />
+            </div>
+
+            <p className="mt-3 text-xl font-bold tracking-tight text-slate-800">
+              {formatarMoeda(totalCustos)}
+            </p>
+          </div>
+
+          <div
+            className={[
+              "rounded-xl border p-5",
+              lucro >= 0
+                ? "border-emerald-100 bg-emerald-50/60"
+                : "border-red-100 bg-red-50/60",
+            ].join(" ")}
+          >
+            <div className="flex items-center justify-between">
+              <p
+                className={[
+                  "text-[11px] font-medium",
+                  lucro >= 0
+                    ? "text-emerald-600"
+                    : "text-red-600",
+                ].join(" ")}
+              >
+                Lucro líquido
+              </p>
+
+              <DollarSign
+                size={16}
+                className={
+                  lucro >= 0
+                    ? "text-emerald-600"
+                    : "text-red-600"
+                }
+              />
+            </div>
+
+            <p
+              className={[
+                "mt-3 text-xl font-bold tracking-tight",
+                lucro >= 0
+                  ? "text-emerald-700"
+                  : "text-red-700",
+              ].join(" ")}
+            >
+              {formatarMoeda(lucro)}
+            </p>
+          </div>
+
+          <div
+            className={[
+              "rounded-xl border p-5",
+              margem >= 0
+                ? "border-blue-100 bg-blue-50/60"
+                : "border-red-100 bg-red-50/60",
+            ].join(" ")}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-medium text-slate-500">
+                Margem
+              </p>
+
+              <Percent
+                size={16}
+                className="text-blue-600"
+              />
+            </div>
+
+            <p
+              className={[
+                "mt-3 text-xl font-bold tracking-tight",
+                margem >= 0
+                  ? "text-blue-700"
+                  : "text-red-700",
+              ].join(" ")}
+            >
+              {margem.toFixed(2)}%
+            </p>
+          </div>
+
+          <div
+            className={[
+              "rounded-xl border p-5",
+              roi >= 0
+                ? "border-orange-100 bg-orange-50/60"
+                : "border-red-100 bg-red-50/60",
+            ].join(" ")}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-medium text-slate-500">
+                ROI
+              </p>
+
+              <TrendingUp
+                size={16}
+                className={
+                  roi >= 0
+                    ? "text-orange-500"
+                    : "text-red-600"
+                }
+              />
+            </div>
+
+            <p
+              className={[
+                "mt-3 text-xl font-bold tracking-tight",
+                roi >= 0
+                  ? "text-orange-600"
+                  : "text-red-700",
+              ].join(" ")}
+            >
+              {roi.toFixed(2)}%
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
