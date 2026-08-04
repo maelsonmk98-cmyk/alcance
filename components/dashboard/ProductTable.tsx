@@ -35,13 +35,6 @@ export default function ProductTable() {
             Acompanhe os produtos cadastrados recentemente.
           </p>
         </div>
-
-        <button
-          type="button"
-          className="text-sm font-semibold text-[#173967] transition hover:text-orange-500"
-        >
-          Ver todos
-        </button>
       </div>
 
       <div className="overflow-x-auto">
