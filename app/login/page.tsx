@@ -29,11 +29,9 @@ export default function LoginPage() {
 
     console.log("Usuário logado:", data.user);
 
-    alert("LOGIN OK");
+router.push("/dashboard");
 
-return;
-
-    setCarregando(false);
+setCarregando(false);
   }
 
   return (
