@@ -16,22 +16,30 @@ export default function LoginPage() {
     setErro("");
     setCarregando(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password: senha,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: senha,
+      });
 
-    if (error) {
-      setErro(error.message);
+      if (error) {
+        setErro(error.message);
+        setCarregando(false);
+        return;
+      }
+
+      console.log("Usuário logado:", data.user);
+
+      // Redireciona após login
+      router.push("/dashboard");
+      router.refresh();
+
+    } catch (err) {
+      console.error(err);
+      setErro("Erro inesperado ao fazer login.");
+    } finally {
       setCarregando(false);
-      return;
     }
-
-    console.log("Usuário logado:", data.user);
-
-router.push("/dashboard");
-
-setCarregando(false);
   }
 
   return (
