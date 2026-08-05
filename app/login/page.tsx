@@ -30,9 +30,10 @@ export default function LoginPage() {
 
       console.log("Usuário logado:", data.user);
 
-      // Redireciona após login
-      router.push("/dashboard");
-      router.refresh();
+alert("LOGIN PASSOU");
+
+router.push("/dashboard");
+router.refresh();
 
     } catch (err) {
       console.error(err);
