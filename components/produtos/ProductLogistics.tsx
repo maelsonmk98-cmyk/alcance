@@ -2,9 +2,9 @@ import type { ProductFormData } from "./ProductForm";
 
 type ProductLogisticsProps = {
   data: ProductFormData;
-  updateField: (
-    field: string,
-    value: string | number | boolean
+  updateField: <K extends keyof ProductFormData>(
+    field: K,
+    value: ProductFormData[K]
   ) => void;
 };
 
@@ -14,13 +14,11 @@ export default function ProductLogistics({
 }: ProductLogisticsProps) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-8 mt-6">
-
       <h2 className="text-2xl font-bold mb-6">
         📦 Logística
       </h2>
 
       <div className="grid grid-cols-2 gap-6">
-
         <div>
           <label className="block mb-2 font-medium">
             Quantidade em Estoque
@@ -101,9 +99,7 @@ export default function ProductLogistics({
             placeholder="0"
           />
         </div>
-
       </div>
-
     </div>
   );
 }

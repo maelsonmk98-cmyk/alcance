@@ -2,9 +2,9 @@ import type { ProductFormData } from "./ProductForm";
 
 type ProductDescriptionProps = {
   data: ProductFormData;
-  updateField: (
-    field: string,
-    value: string | number | boolean
+  updateField: <K extends keyof ProductFormData>(
+    field: K,
+    value: ProductFormData[K]
   ) => void;
 };
 
@@ -14,13 +14,11 @@ export default function ProductDescription({
 }: ProductDescriptionProps) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-8 mt-6">
-
       <h2 className="text-2xl font-bold mb-6">
         📝 Informações Adicionais
       </h2>
 
       <div className="space-y-6">
-
         <div>
           <label className="block mb-2 font-medium">
             Descrição do Produto
@@ -63,9 +61,7 @@ export default function ProductDescription({
             className="w-full border rounded-xl p-3"
           />
         </div>
-
       </div>
-
     </div>
   );
 }

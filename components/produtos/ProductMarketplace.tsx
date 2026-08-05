@@ -2,9 +2,9 @@ import type { ProductFormData } from "./ProductForm";
 
 type ProductMarketplaceProps = {
   data: ProductFormData;
-  updateField: (
-    field: string,
-    value: string | number | boolean
+  updateField: <K extends keyof ProductFormData>(
+    field: K,
+    value: ProductFormData[K]
   ) => void;
 };
 
@@ -14,13 +14,11 @@ export default function ProductMarketplace({
 }: ProductMarketplaceProps) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-8 mt-6">
-
       <h2 className="text-2xl font-bold mb-6">
         🛒 Marketplace
       </h2>
 
       <div className="grid grid-cols-2 gap-6">
-
         <div>
           <label className="block mb-2 font-medium">
             Marketplace
@@ -95,9 +93,7 @@ export default function ProductMarketplace({
             <option>Sim</option>
           </select>
         </div>
-
       </div>
-
     </div>
   );
 }

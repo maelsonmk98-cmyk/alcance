@@ -61,6 +61,8 @@ export default async function EditarProduto({
     comprimento: Number(data.comprimento ?? 0),
 
     descricao: data.descricao ?? "",
+    acos: Number(data.acos ?? 0),
+promocao: Number(data.promocao ?? 0),
     observacoes: data.observacoes ?? "",
   };
 
