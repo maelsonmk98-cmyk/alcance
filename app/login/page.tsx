@@ -10,25 +10,34 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
   async function entrar() {
     setErro("");
+    setCarregando(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
       password: senha,
     });
 
     if (error) {
       setErro(error.message);
+      setCarregando(false);
       return;
     }
 
-    router.push("/");
+    console.log("Usuário logado:", data.user);
+
+    alert("LOGIN OK");
+
+return;
+
+    setCarregando(false);
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100">
+    <main className="min-h-screen flex items-center justify-center bg-slate-100">
 
       <div className="bg-white p-8 rounded-2xl shadow-xl w-[420px]">
 
@@ -38,17 +47,18 @@ export default function LoginPage() {
 
         <input
           className="border rounded-xl p-3 w-full mb-4"
-          placeholder="E-mail"
+          placeholder="Digite seu e-mail"
+          type="email"
           value={email}
-          onChange={(e)=>setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
         />
 
         <input
-          type="password"
           className="border rounded-xl p-3 w-full mb-4"
-          placeholder="Senha"
+          placeholder="Digite sua senha"
+          type="password"
           value={senha}
-          onChange={(e)=>setSenha(e.target.value)}
+          onChange={(e) => setSenha(e.target.value)}
         />
 
         {erro && (
@@ -59,13 +69,14 @@ export default function LoginPage() {
 
         <button
           onClick={entrar}
-          className="w-full bg-orange-500 text-white rounded-xl p-3 font-semibold"
+          disabled={carregando}
+          className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white rounded-xl p-3 font-semibold"
         >
-          Entrar
+          {carregando ? "Entrando..." : "Entrar"}
         </button>
 
       </div>
 
-    </div>
+    </main>
   );
 }

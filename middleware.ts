@@ -36,12 +36,29 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && request.nextUrl.pathname !== "/login") {
-    return NextResponse.redirect(new URL("/login", request.url));
+  const pathname = request.nextUrl.pathname;
+
+  // Rotas públicas (não precisam de login)
+  const publicRoutes = [
+    "/login",
+    "/cadastro",
+  ];
+
+  // Se não estiver logado e tentar acessar área protegida
+  if (!user && !publicRoutes.includes(pathname)) {
+    return NextResponse.redirect(
+      new URL("/login", request.url)
+    );
   }
 
-  if (user && request.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
+  // Se já estiver logado e tentar abrir login/cadastro
+  if (
+    user &&
+    (pathname === "/login" || pathname === "/cadastro")
+  ) {
+    return NextResponse.redirect(
+      new URL("/dashboard", request.url)
+    );
   }
 
   return response;
