@@ -36,6 +36,24 @@ export default function ProductActions({
     setSalvando(true);
 
     try {
+      // Verifica o usuário atualmente logado
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error(userError);
+        setMensagem("Erro ao verificar o usuário logado.");
+        return;
+      }
+
+      if (!user) {
+        setMensagem("Sua sessão expirou. Faça login novamente.");
+        router.push("/login");
+        return;
+      }
+
       const produto = {
         nome: data.nome,
         sku: data.sku,
@@ -66,6 +84,9 @@ export default function ProductActions({
 
         descricao: data.descricao || null,
         observacoes: data.observacoes || null,
+
+        // Usuário dono do produto
+        user_id: user.id,
       };
 
       let error;
@@ -74,7 +95,8 @@ export default function ProductActions({
         const resultado = await supabase
           .from("produtos")
           .update(produto)
-          .eq("id", productId);
+          .eq("id", productId)
+          .eq("user_id", user.id);
 
         error = resultado.error;
       } else {
@@ -107,6 +129,7 @@ export default function ProductActions({
       }, 800);
     } catch (error) {
       console.error(error);
+
       setMensagem(
         "Ocorreu um erro ao salvar o produto."
       );
