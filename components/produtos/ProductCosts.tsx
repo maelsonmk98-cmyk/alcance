@@ -121,9 +121,9 @@ export default function ProductCosts({
         </div>
 
         <div>
-          <label className="mb-2 block font-medium">
-            Aços
-          </label>
+         <label className="mb-2 block font-medium">
+  ACOS (%)
+</label>
 
           <input
             type="number"
@@ -136,13 +136,17 @@ export default function ProductCosts({
               )
             }
             className="w-full rounded-xl border p-3"
-            placeholder="0,00"
+            placeholder="0"
           />
+
+         <p className="mt-1 text-xs text-slate-500">
+  Percentual sobre o valor da venda.
+</p>
         </div>
 
         <div>
           <label className="mb-2 block font-medium">
-            Promoção
+            Promoção (%)
           </label>
 
           <input
@@ -156,8 +160,12 @@ export default function ProductCosts({
               )
             }
             className="w-full rounded-xl border p-3"
-            placeholder="0,00"
+            placeholder="0"
           />
+
+          <p className="mt-1 text-xs text-slate-500">
+            Percentual de desconto promocional sobre o preço de venda.
+          </p>
         </div>
 
         <div>

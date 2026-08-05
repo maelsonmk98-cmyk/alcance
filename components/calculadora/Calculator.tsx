@@ -20,11 +20,16 @@ type Produto = {
   id: number;
   sku: string | null;
   nome: string | null;
-  categoria: string | null;
+  categoria: string |null;
+
   custo: number | null;
   preco_venda: number | null;
+
   comissao: number | null;
   impostos: number | null;
+  acos: number | null;
+  promocao: number | null;
+
   embalagem: number | null;
   frete: number | null;
   outras_despesas: number | null;
@@ -68,11 +73,23 @@ export default function Calculator() {
     setBuscando(true);
     setErro("");
 
-    const { data, error } = await supabase
+   const { data, error } = await supabase
       .from("produtos")
-      .select(
-        "id, sku, nome, categoria, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
-      )
+      .select(`
+id,
+sku,
+nome,
+categoria,
+custo,
+preco_venda,
+comissao,
+impostos,
+acos,
+promocao,
+embalagem,
+frete,
+outras_despesas
+`)
       .eq("sku", skuBusca)
       .maybeSingle();
 
@@ -102,8 +119,8 @@ export default function Calculator() {
     setOutrasDespesas(Number(data.outras_despesas ?? 0));
 
     // ACOS e Promoção começam zerados para cada nova análise
-    setAcos(0);
-    setPromocao(0);
+    setAcos(Number(data.acos ?? 0));
+setPromocao(Number(data.promocao ?? 0));
 
     setBuscando(false);
   }
