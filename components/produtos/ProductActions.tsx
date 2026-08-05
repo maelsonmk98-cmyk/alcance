@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
 import type { ProductFormData } from "./ProductForm";
 
 type ProductActionsProps = {
@@ -48,6 +49,8 @@ export default function ProductActions({
         embalagem: data.embalagem,
         comissao: data.comissao,
         impostos: data.impostos,
+        acos: data.acos,
+        promocao: data.promocao,
         outras_despesas: data.outras_despesas,
 
         marketplace: data.marketplace,
@@ -84,17 +87,19 @@ export default function ProductActions({
 
       if (error) {
         console.error(error);
+
         setMensagem(
           "Erro ao salvar o produto: " + error.message
         );
+
         return;
       }
 
-      if (productId) {
-        setMensagem("✅ Produto atualizado com sucesso!");
-      } else {
-        setMensagem("✅ Produto cadastrado com sucesso!");
-      }
+      setMensagem(
+        productId
+          ? "✅ Produto atualizado com sucesso!"
+          : "✅ Produto cadastrado com sucesso!"
+      );
 
       setTimeout(() => {
         router.push("/produtos");
@@ -102,14 +107,17 @@ export default function ProductActions({
       }, 800);
     } catch (error) {
       console.error(error);
-      setMensagem("Ocorreu um erro ao salvar o produto.");
+      setMensagem(
+        "Ocorreu um erro ao salvar o produto."
+      );
     } finally {
       setSalvando(false);
     }
   }
 
   return (
-    <div className="flex flex-col items-end gap-4 mt-8">
+    <div className="mt-8 flex flex-col items-end gap-4">
+
       {mensagem && (
         <div className="w-full text-center font-medium">
           {mensagem}
@@ -117,9 +125,10 @@ export default function ProductActions({
       )}
 
       <div className="flex justify-end gap-4">
+
         <a
           href="/produtos"
-          className="border px-6 py-3 rounded-xl hover:bg-gray-100 transition"
+          className="rounded-xl border px-6 py-3 transition hover:bg-gray-100"
         >
           Cancelar
         </a>
@@ -128,7 +137,7 @@ export default function ProductActions({
           type="button"
           onClick={salvarProduto}
           disabled={salvando}
-          className="bg-[#081E4A] text-white px-8 py-3 rounded-xl hover:bg-blue-900 transition disabled:opacity-50"
+          className="rounded-xl bg-[#081E4A] px-8 py-3 text-white transition hover:bg-blue-900 disabled:opacity-50"
         >
           {salvando
             ? "Salvando..."
@@ -136,6 +145,7 @@ export default function ProductActions({
               ? "Atualizar Produto"
               : "Salvar Produto"}
         </button>
+
       </div>
     </div>
   );

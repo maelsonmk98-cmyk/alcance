@@ -1,39 +1,123 @@
-import { TrendingUp } from "lucide-react";
+"use client";
 
-const faixas = [
-  {
-    label: "Acima de 30%",
-    quantidade: 142,
-    percentual: "57%",
-    barra: "bg-emerald-500",
-    ponto: "bg-emerald-500",
-  },
-  {
-    label: "Entre 20% e 30%",
-    quantidade: 68,
-    percentual: "27%",
-    barra: "bg-blue-500",
-    ponto: "bg-blue-500",
-  },
-  {
-    label: "Entre 10% e 20%",
-    quantidade: 26,
-    percentual: "10%",
-    barra: "bg-[#F47B20]",
-    ponto: "bg-[#F47B20]",
-  },
-  {
-    label: "Abaixo de 10%",
-    quantidade: 12,
-    percentual: "6%",
-    barra: "bg-red-500",
-    ponto: "bg-red-500",
-  },
-];
+import { useEffect, useState } from "react";
+import { TrendingUp } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+
+type Produto = {
+  custo: number | null;
+  preco_venda: number | null;
+  comissao: number | null;
+  impostos: number | null;
+  embalagem: number | null;
+  frete: number | null;
+  outras_despesas: number | null;
+};
+
+type Faixa = {
+  label: string;
+  quantidade: number;
+  percentual: number;
+  barra: string;
+  ponto: string;
+};
 
 export default function MarginChart() {
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    async function carregarProdutos() {
+      const { data, error } = await supabase
+        .from("produtos")
+        .select(
+          "custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
+        );
+
+      if (error) {
+        console.error(error);
+        setProdutos([]);
+      } else {
+        setProdutos(data || []);
+      }
+
+      setCarregando(false);
+    }
+
+    carregarProdutos();
+  }, []);
+
+  function calcularMargem(produto: Produto) {
+    const custo = Number(produto.custo ?? 0);
+    const venda = Number(produto.preco_venda ?? 0);
+    const comissao = Number(produto.comissao ?? 0);
+    const impostos = Number(produto.impostos ?? 0);
+    const embalagem = Number(produto.embalagem ?? 0);
+    const frete = Number(produto.frete ?? 0);
+    const outras = Number(produto.outras_despesas ?? 0);
+
+    if (venda <= 0) return 0;
+
+    const lucro =
+      venda -
+      custo -
+      venda * (comissao / 100) -
+      venda * (impostos / 100) -
+      embalagem -
+      frete -
+      outras;
+
+    return (lucro / venda) * 100;
+  }
+
+  const margens = produtos.map(calcularMargem);
+
+  const total = margens.length;
+
+  const acima30 = margens.filter((m) => m > 30).length;
+  const entre20e30 = margens.filter((m) => m >= 20 && m <= 30).length;
+  const entre10e20 = margens.filter((m) => m >= 10 && m < 20).length;
+  const abaixo10 = margens.filter((m) => m < 10).length;
+
+  const percentual = total === 0 ? 0 : (acima30 / total) * 100;
+
+  const raio = 55;
+  const circunferencia = 2 * Math.PI * raio;
+  const offset =
+    circunferencia - (percentual / 100) * circunferencia;
+
+  const faixas: Faixa[] = [
+    {
+      label: "Acima de 30%",
+      quantidade: acima30,
+      percentual: total === 0 ? 0 : (acima30 / total) * 100,
+      barra: "bg-emerald-500",
+      ponto: "bg-emerald-500",
+    },
+    {
+      label: "Entre 20% e 30%",
+      quantidade: entre20e30,
+      percentual: total === 0 ? 0 : (entre20e30 / total) * 100,
+      barra: "bg-blue-500",
+      ponto: "bg-blue-500",
+    },
+    {
+      label: "Entre 10% e 20%",
+      quantidade: entre10e20,
+      percentual: total === 0 ? 0 : (entre10e20 / total) * 100,
+      barra: "bg-orange-500",
+      ponto: "bg-orange-500",
+    },
+    {
+      label: "Abaixo de 10%",
+      quantidade: abaixo10,
+      percentual: total === 0 ? 0 : (abaixo10 / total) * 100,
+      barra: "bg-red-500",
+      ponto: "bg-red-500",
+    },
+  ];
+
+  return (    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
@@ -55,53 +139,79 @@ export default function MarginChart() {
       </div>
 
       <div className="flex justify-center py-7">
-        <div className="relative flex h-36 w-36 items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-[13px] border-slate-100" />
+        <div className="relative h-36 w-36">
+          <svg
+            width="144"
+            height="144"
+            viewBox="0 0 144 144"
+            className="-rotate-90"
+          >
+            <circle
+              cx="72"
+              cy="72"
+              r={raio}
+              fill="none"
+              stroke="#e5e7eb"
+              strokeWidth="12"
+            />
 
-          <div className="absolute inset-0 rounded-full border-[13px] border-transparent border-t-emerald-500 border-r-emerald-500 rotate-[-25deg]" />
+            <circle
+              cx="72"
+              cy="72"
+              r={raio}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="12"
+              strokeLinecap="round"
+              strokeDasharray={circunferencia}
+              strokeDashoffset={offset}
+              style={{
+                transition: "stroke-dashoffset .6s ease",
+              }}
+            />
+          </svg>
 
-          <div className="relative text-center">
-            <p className="text-[29px] font-bold tracking-tight text-slate-900">
-              57%
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className="text-[29px] font-bold text-slate-900">
+              {carregando ? "..." : `${percentual.toFixed(0)}%`}
             </p>
 
-            <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+            <p className="text-[11px] text-slate-500">
               acima de 30%
             </p>
           </div>
         </div>
       </div>
 
-      <div className="space-y-4.5">
+      <div className="space-y-4">
         {faixas.map((faixa) => (
           <div key={faixa.label}>
             <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span
-                  className={`h-2 w-2 rounded-full ${faixa.ponto}`}
-                />
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${faixa.ponto}`} />
 
-                <span className="text-[12px] font-medium text-slate-600">
+                <span className="text-sm text-slate-600">
                   {faixa.label}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12px] font-bold text-slate-800">
-                  {faixa.quantidade}
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">
+                  {carregando ? "..." : faixa.quantidade}
                 </span>
 
-                <span className="text-[10px] text-slate-400">
-                  ({faixa.percentual})
+                <span className="text-xs text-slate-400">
+                  {carregando ? "" : `(${faixa.percentual.toFixed(0)}%)`}
                 </span>
               </div>
             </div>
 
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-slate-100">
               <div
-                className={`h-full rounded-full ${faixa.barra} transition-all`}
+                className={`h-full rounded-full ${faixa.barra}`}
                 style={{
-                  width: faixa.percentual,
+                  width: `${faixa.percentual}%`,
+                  transition: "width .6s ease",
                 }}
               />
             </div>
@@ -110,7 +220,7 @@ export default function MarginChart() {
       </div>
 
       <div className="mt-6 border-t border-slate-100 pt-4">
-        <p className="text-[10px] text-slate-400">
+        <p className="text-xs text-slate-400">
           Baseado nos produtos cadastrados
         </p>
       </div>
