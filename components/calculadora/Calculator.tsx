@@ -47,6 +47,11 @@ export default function Calculator() {
   const [comissao, setComissao] = useState(0);
   const [tarifaFixa, setTarifaFixa] = useState(6.5);
   const [impostos, setImpostos] = useState(0);
+
+  // Novos campos
+  const [acos, setAcos] = useState(0);
+  const [promocao, setPromocao] = useState(0);
+
   const [frete, setFrete] = useState(0);
   const [embalagem, setEmbalagem] = useState(0);
   const [outrasDespesas, setOutrasDespesas] = useState(0);
@@ -96,6 +101,10 @@ export default function Calculator() {
     setEmbalagem(Number(data.embalagem ?? 0));
     setOutrasDespesas(Number(data.outras_despesas ?? 0));
 
+    // ACOS e Promoção começam zerados para cada nova análise
+    setAcos(0);
+    setPromocao(0);
+
     setBuscando(false);
   }
 
@@ -115,18 +124,33 @@ export default function Calculator() {
     setProduto(null);
     setErro("");
     setNomeManual("");
+
     setCusto(0);
     setPrecoVenda(0);
     setComissao(0);
     setTarifaFixa(6.5);
     setImpostos(0);
+
+    setAcos(0);
+    setPromocao(0);
+
     setFrete(0);
     setEmbalagem(0);
     setOutrasDespesas(0);
   }
 
+  // =========================================================
+  // CÁLCULOS
+  // ACOS e PROMOÇÃO são percentuais sobre o PREÇO DE VENDA
+  // =========================================================
+
   const valorComissao = precoVenda * (comissao / 100);
+
   const valorImpostos = precoVenda * (impostos / 100);
+
+  const valorAcOS = precoVenda * (acos / 100);
+
+  const valorPromocao = precoVenda * (promocao / 100);
 
   const lucro =
     precoVenda -
@@ -134,6 +158,8 @@ export default function Calculator() {
     valorComissao -
     tarifaFixa -
     valorImpostos -
+    valorAcOS -
+    valorPromocao -
     frete -
     embalagem -
     outrasDespesas;
@@ -149,6 +175,8 @@ export default function Calculator() {
     valorComissao +
     tarifaFixa +
     valorImpostos +
+    valorAcOS +
+    valorPromocao +
     frete +
     embalagem +
     outrasDespesas;
@@ -166,7 +194,11 @@ export default function Calculator() {
 
   return (
     <div className="space-y-6">
-      {/* Modo da calculadora */}
+
+      {/* =====================================================
+          MODO DA CALCULADORA
+      ====================================================== */}
+
       <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
         <div>
           <h2 className="text-base font-bold text-slate-900">
@@ -179,6 +211,9 @@ export default function Calculator() {
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+          {/* Produto cadastrado */}
+
           <button
             type="button"
             onClick={ativarModoProduto}
@@ -190,6 +225,7 @@ export default function Calculator() {
             ].join(" ")}
           >
             <div className="flex items-center gap-3">
+
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#071E49]/[0.06]">
                 <Search
                   size={18}
@@ -206,8 +242,11 @@ export default function Calculator() {
                   Buscar automaticamente pelo SKU.
                 </p>
               </div>
+
             </div>
           </button>
+
+          {/* Cálculo manual */}
 
           <button
             type="button"
@@ -220,6 +259,7 @@ export default function Calculator() {
             ].join(" ")}
           >
             <div className="flex items-center gap-3">
+
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#071E49]/[0.06]">
                 <CalculatorIcon
                   size={18}
@@ -236,17 +276,26 @@ export default function Calculator() {
                   Calcule sem cadastrar um produto.
                 </p>
               </div>
+
             </div>
           </button>
+
         </div>
       </div>
 
-      {/* Busca por SKU */}
+      {/* =====================================================
+          BUSCA POR SKU
+      ====================================================== */}
+
       {modo === "produto" && (
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end">
+
             <div className="flex-1">
+
               <div className="mb-3 flex items-center gap-2">
+
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#071E49]/[0.06]">
                   <Search
                     size={16}
@@ -263,9 +312,11 @@ export default function Calculator() {
                     Informe o SKU para carregar os dados cadastrados.
                   </p>
                 </div>
+
               </div>
 
               <div className="relative">
+
                 <Search
                   size={17}
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
@@ -283,7 +334,9 @@ export default function Calculator() {
                   placeholder="Digite o SKU do produto..."
                   className={`${campoClasse()} pl-10`}
                 />
+
               </div>
+
             </div>
 
             <button
@@ -293,8 +346,10 @@ export default function Calculator() {
               className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F47B20] px-6 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(244,123,32,0.16)] transition-all hover:bg-[#E96F17] hover:shadow-[0_7px_18px_rgba(244,123,32,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Search size={16} />
+
               {buscando ? "Buscando..." : "Buscar produto"}
             </button>
+
           </div>
 
           {erro && (
@@ -302,13 +357,19 @@ export default function Calculator() {
               {erro}
             </div>
           )}
+
         </div>
       )}
 
-      {/* Informações do cálculo manual */}
+      {/* =====================================================
+          CÁLCULO MANUAL
+      ====================================================== */}
+
       {modo === "manual" && (
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+
           <div className="flex items-center gap-3">
+
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#071E49]/[0.06]">
               <CalculatorIcon
                 size={18}
@@ -325,9 +386,11 @@ export default function Calculator() {
                 Preencha os valores abaixo para fazer uma simulação.
               </p>
             </div>
+
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                 Nome do produto
@@ -361,15 +424,22 @@ export default function Calculator() {
                 className={campoClasse()}
               />
             </div>
+
           </div>
         </div>
       )}
 
-      {/* Produto selecionado */}
+      {/* =====================================================
+          PRODUTO SELECIONADO
+      ====================================================== */}
+
       {modo === "produto" && produto && (
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
             <div className="flex items-center gap-4">
+
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#071E49]/[0.06]">
                 <Package
                   size={21}
@@ -378,6 +448,7 @@ export default function Calculator() {
               </div>
 
               <div className="min-w-0">
+
                 <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
                   Produto selecionado
                 </p>
@@ -385,7 +456,9 @@ export default function Calculator() {
                 <h2 className="mt-1 truncate text-lg font-bold tracking-tight text-slate-900">
                   {produto.nome || "Produto sem nome"}
                 </h2>
+
               </div>
+
             </div>
 
             <button
@@ -396,9 +469,11 @@ export default function Calculator() {
               <RotateCcw size={14} />
               Limpar
             </button>
+
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 md:grid-cols-3">
+
             <div>
               <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
                 SKU
@@ -428,15 +503,23 @@ export default function Calculator() {
                 {formatarMoeda(custo)}
               </p>
             </div>
+
           </div>
         </div>
       )}
 
-      {/* Dados da operação */}
+      {/* =====================================================
+          DADOS DA OPERAÇÃO
+      ====================================================== */}
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {/* Venda */}
+
+        {/* Dados da venda */}
+
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+
           <div className="mb-5 flex items-center gap-3">
+
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
               <DollarSign
                 size={17}
@@ -453,15 +536,20 @@ export default function Calculator() {
                 Configure os valores da operação.
               </p>
             </div>
+
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            {/* Preço de venda */}
+
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                 Preço de venda
               </label>
 
               <div className="relative">
+
                 <DollarSign
                   size={15}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -470,14 +558,18 @@ export default function Calculator() {
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   value={precoVenda}
                   onChange={(e) =>
                     setPrecoVenda(Number(e.target.value))
                   }
                   className={`${campoClasse()} pl-9`}
                 />
+
               </div>
             </div>
+
+            {/* Comissão */}
 
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
@@ -485,6 +577,7 @@ export default function Calculator() {
               </label>
 
               <div className="relative">
+
                 <Percent
                   size={14}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -493,14 +586,22 @@ export default function Calculator() {
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   value={comissao}
                   onChange={(e) =>
                     setComissao(Number(e.target.value))
                   }
                   className={`${campoClasse()} pl-9`}
                 />
+
               </div>
+
+              <p className="mt-1 text-[10px] text-slate-400">
+                Percentual sobre o valor da venda.
+              </p>
             </div>
+
+            {/* Tarifa fixa */}
 
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
@@ -510,6 +611,7 @@ export default function Calculator() {
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={tarifaFixa}
                 onChange={(e) =>
                   setTarifaFixa(Number(e.target.value))
@@ -522,6 +624,8 @@ export default function Calculator() {
               </p>
             </div>
 
+            {/* Custo */}
+
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
                 Custo do produto
@@ -530,6 +634,7 @@ export default function Calculator() {
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={custo}
                 onChange={(e) =>
                   setCusto(Number(e.target.value))
@@ -537,12 +642,18 @@ export default function Calculator() {
                 className={campoClasse()}
               />
             </div>
+
           </div>
         </div>
 
-        {/* Outros custos */}
+        {/* =====================================================
+            OUTROS CUSTOS
+        ====================================================== */}
+
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+
           <div className="mb-5 flex items-center gap-3">
+
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
               <Wallet
                 size={17}
@@ -559,9 +670,13 @@ export default function Calculator() {
                 Despesas adicionais da operação.
               </p>
             </div>
+
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            {/* Impostos */}
+
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
                 <Percent size={12} />
@@ -571,13 +686,68 @@ export default function Calculator() {
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={impostos}
                 onChange={(e) =>
                   setImpostos(Number(e.target.value))
                 }
                 className={campoClasse()}
               />
+
+              <p className="mt-1 text-[10px] text-slate-400">
+                Percentual sobre o valor da venda.
+              </p>
             </div>
+
+            {/* ACOS */}
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <Percent size={12} />
+                ACOS (%)
+              </label>
+
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={acos}
+                onChange={(e) =>
+                  setAcos(Number(e.target.value))
+                }
+                className={campoClasse()}
+              />
+
+              <p className="mt-1 text-[10px] text-slate-400">
+                Percentual sobre o valor da venda.
+              </p>
+            </div>
+
+            {/* Promoção */}
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <Percent size={12} />
+                Promoção (%)
+              </label>
+
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={promocao}
+                onChange={(e) =>
+                  setPromocao(Number(e.target.value))
+                }
+                className={campoClasse()}
+              />
+
+              <p className="mt-1 text-[10px] text-slate-400">
+                Percentual sobre o valor da venda.
+              </p>
+            </div>
+
+            {/* Frete */}
 
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
@@ -588,6 +758,7 @@ export default function Calculator() {
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={frete}
                 onChange={(e) =>
                   setFrete(Number(e.target.value))
@@ -595,6 +766,8 @@ export default function Calculator() {
                 className={campoClasse()}
               />
             </div>
+
+            {/* Embalagem */}
 
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
@@ -605,6 +778,7 @@ export default function Calculator() {
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={embalagem}
                 onChange={(e) =>
                   setEmbalagem(Number(e.target.value))
@@ -612,6 +786,8 @@ export default function Calculator() {
                 className={campoClasse()}
               />
             </div>
+
+            {/* Outras despesas */}
 
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
@@ -622,6 +798,7 @@ export default function Calculator() {
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={outrasDespesas}
                 onChange={(e) =>
                   setOutrasDespesas(Number(e.target.value))
@@ -629,14 +806,117 @@ export default function Calculator() {
                 className={campoClasse()}
               />
             </div>
+
           </div>
+        </div>
+
+      </div>
+
+      {/* =====================================================
+          RESUMO DOS PERCENTUAIS
+      ====================================================== */}
+
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+
+        <div className="mb-5">
+
+          <h2 className="text-sm font-bold text-slate-900">
+            Resumo dos percentuais
+          </h2>
+
+          <p className="mt-1 text-[11px] text-slate-400">
+            Valores calculados automaticamente sobre o preço de venda.
+          </p>
+
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+          {/* Comissão */}
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              Comissão
+            </p>
+
+            <p className="mt-1 text-sm font-bold text-slate-800">
+              {formatarMoeda(valorComissao)}
+            </p>
+
+            <p className="mt-1 text-[10px] text-slate-400">
+              {comissao.toFixed(2)}%
+            </p>
+
+          </div>
+
+          {/* Impostos */}
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              Impostos
+            </p>
+
+            <p className="mt-1 text-sm font-bold text-slate-800">
+              {formatarMoeda(valorImpostos)}
+            </p>
+
+            <p className="mt-1 text-[10px] text-slate-400">
+              {impostos.toFixed(2)}%
+            </p>
+
+          </div>
+
+          {/* ACOS */}
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              ACOS
+            </p>
+
+            <p className="mt-1 text-sm font-bold text-slate-800">
+              {formatarMoeda(valorAcOS)}
+            </p>
+
+            <p className="mt-1 text-[10px] text-slate-400">
+              {acos.toFixed(2)}%
+            </p>
+
+          </div>
+
+          {/* Promoção */}
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              Promoção
+            </p>
+
+            <p className="mt-1 text-sm font-bold text-slate-800">
+              {formatarMoeda(valorPromocao)}
+            </p>
+
+            <p className="mt-1 text-[10px] text-slate-400">
+              {promocao.toFixed(2)}%
+            </p>
+
+          </div>
+
         </div>
       </div>
 
-      {/* Resultado */}
+      {/* =====================================================
+          RESULTADO
+      ====================================================== */}
+
       <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+
         <div className="mb-6 flex items-center justify-between gap-4">
+
           <div className="flex items-center gap-3">
+
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
               <CalculatorIcon
                 size={17}
@@ -645,6 +925,7 @@ export default function Calculator() {
             </div>
 
             <div>
+
               <h2 className="text-sm font-bold text-slate-900">
                 Resultado da análise
               </h2>
@@ -652,7 +933,9 @@ export default function Calculator() {
               <p className="text-[11px] text-slate-400">
                 Resultado calculado com os valores informados.
               </p>
+
             </div>
+
           </div>
 
           <button
@@ -663,11 +946,17 @@ export default function Calculator() {
             <RotateCcw size={14} />
             Limpar
           </button>
+
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+          {/* Total de custos */}
+
           <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-5">
+
             <div className="flex items-center justify-between">
+
               <p className="text-[11px] font-medium text-slate-500">
                 Total de custos
               </p>
@@ -676,12 +965,16 @@ export default function Calculator() {
                 size={16}
                 className="text-slate-400"
               />
+
             </div>
 
             <p className="mt-3 text-xl font-bold tracking-tight text-slate-800">
               {formatarMoeda(totalCustos)}
             </p>
+
           </div>
+
+          {/* Lucro */}
 
           <div
             className={[
@@ -691,7 +984,9 @@ export default function Calculator() {
                 : "border-red-100 bg-red-50/60",
             ].join(" ")}
           >
+
             <div className="flex items-center justify-between">
+
               <p
                 className={[
                   "text-[11px] font-medium",
@@ -711,6 +1006,7 @@ export default function Calculator() {
                     : "text-red-600"
                 }
               />
+
             </div>
 
             <p
@@ -723,7 +1019,10 @@ export default function Calculator() {
             >
               {formatarMoeda(lucro)}
             </p>
+
           </div>
+
+          {/* Margem */}
 
           <div
             className={[
@@ -733,7 +1032,9 @@ export default function Calculator() {
                 : "border-red-100 bg-red-50/60",
             ].join(" ")}
           >
+
             <div className="flex items-center justify-between">
+
               <p className="text-[11px] font-medium text-slate-500">
                 Margem
               </p>
@@ -742,6 +1043,7 @@ export default function Calculator() {
                 size={16}
                 className="text-blue-600"
               />
+
             </div>
 
             <p
@@ -754,7 +1056,10 @@ export default function Calculator() {
             >
               {margem.toFixed(2)}%
             </p>
+
           </div>
+
+          {/* ROI */}
 
           <div
             className={[
@@ -764,7 +1069,9 @@ export default function Calculator() {
                 : "border-red-100 bg-red-50/60",
             ].join(" ")}
           >
+
             <div className="flex items-center justify-between">
+
               <p className="text-[11px] font-medium text-slate-500">
                 ROI
               </p>
@@ -777,6 +1084,7 @@ export default function Calculator() {
                     : "text-red-600"
                 }
               />
+
             </div>
 
             <p
@@ -789,9 +1097,12 @@ export default function Calculator() {
             >
               {roi.toFixed(2)}%
             </p>
+
           </div>
+
         </div>
       </div>
+
     </div>
   );
 }
