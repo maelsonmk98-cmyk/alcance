@@ -28,11 +28,12 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("Usuário logado:", data.user);
+console.log("Usuário logado:", data.user);
+console.log("Sessão:", data.session);
 
-alert("LOGIN PASSOU");
+alert(data.session ? "TEM SESSÃO" : "SEM SESSÃO");
 
-router.push("/dashboard");
+router.push("/");
 router.refresh();
 
     } catch (err) {
