@@ -7,6 +7,7 @@ import {
   TrendingUp,
   DollarSign,
   Wallet,
+  Percent,
   ArrowUpRight,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -105,6 +106,14 @@ export default function DashboardCards() {
    * ============================================================
    */
 
+  // Valor investido = custo unitário × quantidade em estoque
+  const valorInvestido = produtos.reduce((total, produto) => {
+    const custo = Number(produto.custo ?? 0);
+    const quantidade = Number(produto.estoque ?? 0);
+
+    return total + custo * quantidade;
+  }, 0);
+
   // Faturamento = preço de venda × quantidade em estoque
   const faturamento = produtos.reduce((total, produto) => {
     const venda = Number(produto.preco_venda ?? 0);
@@ -121,10 +130,16 @@ export default function DashboardCards() {
     return total + lucroUnitario * quantidade;
   }, 0);
 
-  // Margem geral ponderada pelo valor total das unidades
+  // Margem = lucro / faturamento
   const margemMedia =
     faturamento > 0
       ? (lucroLiquido / faturamento) * 100
+      : 0;
+
+  // ROI = lucro / valor investido
+  const roi =
+    valorInvestido > 0
+      ? (lucroLiquido / valorInvestido) * 100
       : 0;
 
   /*
@@ -153,12 +168,28 @@ export default function DashboardCards() {
       iconColor: "text-blue-600",
     },
     {
+      title: "Valor Investido",
+      value: carregando ? "..." : formatarMoeda(valorInvestido),
+      description: "Custo total do estoque",
+      icon: Wallet,
+      iconBg: "bg-violet-50",
+      iconColor: "text-violet-600",
+    },
+    {
       title: "Margem Média",
       value: carregando ? "..." : `${margemMedia.toFixed(2)}%`,
-      description: "Margem sobre os produtos",
+      description: "Margem sobre as vendas",
       icon: TrendingUp,
       iconBg: "bg-emerald-50",
       iconColor: "text-emerald-600",
+    },
+    {
+      title: "ROI",
+      value: carregando ? "..." : `${roi.toFixed(2)}%`,
+      description: "Retorno sobre investimento",
+      icon: Percent,
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-600",
     },
     {
       title: "Lucro Líquido",
@@ -179,7 +210,7 @@ export default function DashboardCards() {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
       {cards.map((card) => {
         const Icon = card.icon;
 
