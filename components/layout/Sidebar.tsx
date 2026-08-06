@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  LayoutDashboard,
   Package,
   Calculator,
   Megaphone,
@@ -16,6 +17,11 @@ import {
 } from "lucide-react";
 
 const menuItems = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
   {
     label: "Estoque",
     href: "/",
@@ -65,7 +71,7 @@ export default function Sidebar() {
     <aside className="flex h-screen w-[250px] shrink-0 flex-col bg-[#071E49] text-white">
       {/* Logo */}
       <div className="flex h-[96px] items-center border-b border-white/[0.07] px-6">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F47B20] shadow-[0_6px_18px_rgba(244,123,32,0.25)]">
             <span className="text-xl font-bold text-white">A</span>
           </div>
