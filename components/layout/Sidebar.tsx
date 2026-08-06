@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
   Package,
   Calculator,
   Megaphone,
@@ -18,9 +17,9 @@ import {
 
 const menuItems = [
   {
-    label: "Dashboard",
+    label: "Estoque",
     href: "/",
-    icon: LayoutDashboard,
+    icon: Package,
   },
   {
     label: "Produtos",
