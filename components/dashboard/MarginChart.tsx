@@ -5,6 +5,7 @@ import { TrendingUp } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Produto = {
+  estoque: number | null;
   custo: number | null;
   preco_venda: number | null;
   comissao: number | null;
@@ -31,11 +32,14 @@ export default function MarginChart() {
       const { data, error } = await supabase
         .from("produtos")
         .select(
-          "custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
+          "estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
         );
 
       if (error) {
-        console.error(error);
+        console.error(
+          "Erro ao carregar produtos para o gráfico:",
+          error
+        );
         setProdutos([]);
       } else {
         setProdutos(data || []);
@@ -70,54 +74,122 @@ export default function MarginChart() {
     return (lucro / venda) * 100;
   }
 
-  const margens = produtos.map(calcularMargem);
+  /*
+   * ============================================================
+   * DISTRIBUIÇÃO POR QUANTIDADE DE PRODUTOS
+   * ============================================================
+   *
+   * Cada SKU pode possuir várias unidades em estoque.
+   *
+   * Exemplo:
+   *
+   * SKU A = 10 unidades com margem de 25%
+   *
+   * As 10 unidades entram na faixa de 20% a 30%.
+   *
+   * Não contamos apenas 1 SKU.
+   */
 
-  const total = margens.length;
+  let totalProdutos = 0;
+  let acima30 = 0;
+  let entre20e30 = 0;
+  let entre10e20 = 0;
+  let abaixo10 = 0;
 
-  const acima30 = margens.filter((m) => m > 30).length;
-  const entre20e30 = margens.filter((m) => m >= 20 && m <= 30).length;
-  const entre10e20 = margens.filter((m) => m >= 10 && m < 20).length;
-  const abaixo10 = margens.filter((m) => m < 10).length;
+  produtos.forEach((produto) => {
+    const quantidade = Math.max(
+      0,
+      Number(produto.estoque ?? 0)
+    );
 
-  const percentual = total === 0 ? 0 : (acima30 / total) * 100;
+    const margem = calcularMargem(produto);
+
+    totalProdutos += quantidade;
+
+    if (margem > 30) {
+      acima30 += quantidade;
+    } else if (margem >= 20) {
+      entre20e30 += quantidade;
+    } else if (margem >= 10) {
+      entre10e20 += quantidade;
+    } else {
+      abaixo10 += quantidade;
+    }
+  });
+
+  const percentualAcima30 =
+    totalProdutos === 0
+      ? 0
+      : (acima30 / totalProdutos) * 100;
+
+  const percentualEntre20e30 =
+    totalProdutos === 0
+      ? 0
+      : (entre20e30 / totalProdutos) * 100;
+
+  const percentualEntre10e20 =
+    totalProdutos === 0
+      ? 0
+      : (entre10e20 / totalProdutos) * 100;
+
+  const percentualAbaixo10 =
+    totalProdutos === 0
+      ? 0
+      : (abaixo10 / totalProdutos) * 100;
+
+  /*
+   * ============================================================
+   * GRÁFICO CIRCULAR
+   * ============================================================
+   */
 
   const raio = 55;
   const circunferencia = 2 * Math.PI * raio;
+
   const offset =
-    circunferencia - (percentual / 100) * circunferencia;
+    circunferencia -
+    (percentualAcima30 / 100) * circunferencia;
+
+  /*
+   * ============================================================
+   * FAIXAS
+   * ============================================================
+   */
 
   const faixas: Faixa[] = [
     {
       label: "Acima de 30%",
       quantidade: acima30,
-      percentual: total === 0 ? 0 : (acima30 / total) * 100,
+      percentual: percentualAcima30,
       barra: "bg-emerald-500",
       ponto: "bg-emerald-500",
     },
     {
       label: "Entre 20% e 30%",
       quantidade: entre20e30,
-      percentual: total === 0 ? 0 : (entre20e30 / total) * 100,
+      percentual: percentualEntre20e30,
       barra: "bg-blue-500",
       ponto: "bg-blue-500",
     },
     {
       label: "Entre 10% e 20%",
       quantidade: entre10e20,
-      percentual: total === 0 ? 0 : (entre10e20 / total) * 100,
+      percentual: percentualEntre10e20,
       barra: "bg-orange-500",
       ponto: "bg-orange-500",
     },
     {
       label: "Abaixo de 10%",
       quantidade: abaixo10,
-      percentual: total === 0 ? 0 : (abaixo10 / total) * 100,
+      percentual: percentualAbaixo10,
       barra: "bg-red-500",
       ponto: "bg-red-500",
     },
   ];
 
-  return (    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
+      {/* CABEÇALHO */}
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
@@ -125,7 +197,7 @@ export default function MarginChart() {
           </h2>
 
           <p className="mt-1 text-[12px] text-slate-500">
-            Distribuição das margens dos produtos.
+            Distribuição das margens por quantidade de produtos.
           </p>
         </div>
 
@@ -138,6 +210,7 @@ export default function MarginChart() {
         </div>
       </div>
 
+      {/* GRÁFICO CIRCULAR */}
       <div className="flex justify-center py-7">
         <div className="relative h-36 w-36">
           <svg
@@ -173,7 +246,9 @@ export default function MarginChart() {
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <p className="text-[29px] font-bold text-slate-900">
-              {carregando ? "..." : `${percentual.toFixed(0)}%`}
+              {carregando
+                ? "..."
+                : `${percentualAcima30.toFixed(0)}%`}
             </p>
 
             <p className="text-[11px] text-slate-500">
@@ -183,12 +258,15 @@ export default function MarginChart() {
         </div>
       </div>
 
+      {/* FAIXAS */}
       <div className="space-y-4">
         {faixas.map((faixa) => (
           <div key={faixa.label}>
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${faixa.ponto}`} />
+                <span
+                  className={`h-2 w-2 rounded-full ${faixa.ponto}`}
+                />
 
                 <span className="text-sm text-slate-600">
                   {faixa.label}
@@ -197,11 +275,15 @@ export default function MarginChart() {
 
               <div className="flex items-center gap-2">
                 <span className="font-semibold">
-                  {carregando ? "..." : faixa.quantidade}
+                  {carregando
+                    ? "..."
+                    : faixa.quantidade.toLocaleString("pt-BR")}
                 </span>
 
                 <span className="text-xs text-slate-400">
-                  {carregando ? "" : `(${faixa.percentual.toFixed(0)}%)`}
+                  {carregando
+                    ? ""
+                    : `(${faixa.percentual.toFixed(0)}%)`}
                 </span>
               </div>
             </div>
@@ -219,9 +301,14 @@ export default function MarginChart() {
         ))}
       </div>
 
+      {/* RODAPÉ */}
       <div className="mt-6 border-t border-slate-100 pt-4">
         <p className="text-xs text-slate-400">
-          Baseado nos produtos cadastrados
+          Baseado em{" "}
+          {carregando
+            ? "..."
+            : totalProdutos.toLocaleString("pt-BR")}{" "}
+          unidades em estoque
         </p>
       </div>
     </div>

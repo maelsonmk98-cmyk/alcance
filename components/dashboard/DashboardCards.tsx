@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Package,
+  Boxes,
   TrendingUp,
   DollarSign,
   Wallet,
@@ -11,6 +12,8 @@ import {
 import { supabase } from "@/lib/supabase";
 
 type Produto = {
+  sku: string | null;
+  estoque: number | null;
   custo: number | null;
   preco_venda: number | null;
   comissao: number | null;
@@ -29,7 +32,7 @@ export default function DashboardCards() {
       const { data, error } = await supabase
         .from("produtos")
         .select(
-          "custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
+          "sku, estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
         );
 
       if (error) {
@@ -75,37 +78,84 @@ export default function DashboardCards() {
     );
   }
 
-  const totalProdutos = produtos.length;
+  /*
+   * ============================================================
+   * QUANTIDADES
+   * ============================================================
+   */
 
-  const faturamento = produtos.reduce(
-    (total, produto) =>
-      total + Number(produto.preco_venda ?? 0),
+  // Conta SKUs distintos
+  const skus = new Set(
+    produtos
+      .map((produto) => produto.sku?.trim())
+      .filter((sku) => sku)
+  );
+
+  const totalSkus = skus.size;
+
+  // Soma todas as unidades em estoque
+  const totalProdutos = produtos.reduce(
+    (total, produto) => total + Number(produto.estoque ?? 0),
     0
   );
 
-  const lucroLiquido = produtos.reduce(
-    (total, produto) => total + calcularLucro(produto),
-    0
-  );
+  /*
+   * ============================================================
+   * CÁLCULOS FINANCEIROS
+   * ============================================================
+   */
 
+  // Faturamento = preço de venda × quantidade em estoque
+  const faturamento = produtos.reduce((total, produto) => {
+    const venda = Number(produto.preco_venda ?? 0);
+    const quantidade = Number(produto.estoque ?? 0);
+
+    return total + venda * quantidade;
+  }, 0);
+
+  // Lucro = lucro unitário × quantidade em estoque
+  const lucroLiquido = produtos.reduce((total, produto) => {
+    const quantidade = Number(produto.estoque ?? 0);
+    const lucroUnitario = calcularLucro(produto);
+
+    return total + lucroUnitario * quantidade;
+  }, 0);
+
+  // Margem geral ponderada pelo valor total das unidades
   const margemMedia =
     faturamento > 0
       ? (lucroLiquido / faturamento) * 100
       : 0;
 
+  /*
+   * ============================================================
+   * CARDS
+   * ============================================================
+   */
+
   const cards = [
     {
-      title: "Total de Produtos",
-      value: carregando ? "..." : totalProdutos.toString(),
-      description: "Produtos cadastrados",
+      title: "SKUs Cadastrados",
+      value: carregando ? "..." : totalSkus.toString(),
+      description: "SKUs cadastrados",
       icon: Package,
       iconBg: "bg-[#071E49]/[0.06]",
       iconColor: "text-[#071E49]",
     },
     {
+      title: "Produtos em Estoque",
+      value: carregando
+        ? "..."
+        : totalProdutos.toLocaleString("pt-BR"),
+      description: "Unidades em estoque",
+      icon: Boxes,
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-600",
+    },
+    {
       title: "Margem Média",
       value: carregando ? "..." : `${margemMedia.toFixed(2)}%`,
-      description: "Margem dos produtos",
+      description: "Margem sobre os produtos",
       icon: TrendingUp,
       iconBg: "bg-emerald-50",
       iconColor: "text-emerald-600",
@@ -113,7 +163,7 @@ export default function DashboardCards() {
     {
       title: "Lucro Líquido",
       value: carregando ? "..." : formatarMoeda(lucroLiquido),
-      description: "Lucro acumulado",
+      description: "Lucro considerando estoque",
       icon: DollarSign,
       iconBg: "bg-[#F47B20]/10",
       iconColor: "text-[#F47B20]",
@@ -121,7 +171,7 @@ export default function DashboardCards() {
     {
       title: "Faturamento",
       value: carregando ? "..." : formatarMoeda(faturamento),
-      description: "Faturamento total",
+      description: "Valor total em estoque",
       icon: Wallet,
       iconBg: "bg-[#071E49]/[0.06]",
       iconColor: "text-[#071E49]",
@@ -129,7 +179,7 @@ export default function DashboardCards() {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {cards.map((card) => {
         const Icon = card.icon;
 

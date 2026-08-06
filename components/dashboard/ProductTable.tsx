@@ -9,6 +9,7 @@ type Produto = {
   id: number;
   sku: string | null;
   nome: string | null;
+  estoque: number | null;
   custo: number | null;
   preco_venda: number | null;
   comissao: number | null;
@@ -27,7 +28,7 @@ export default function ProductTable() {
       const { data, error } = await supabase
         .from("produtos")
         .select(
-          "id, sku, nome, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
+          "id, sku, nome, estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
         )
         .order("id", { ascending: false })
         .limit(5);
@@ -50,6 +51,10 @@ export default function ProductTable() {
       style: "currency",
       currency: "BRL",
     });
+  }
+
+  function formatarQuantidade(valor: number | null) {
+    return Number(valor ?? 0).toLocaleString("pt-BR");
   }
 
   function calcularMargem(produto: Produto) {
@@ -135,7 +140,7 @@ export default function ProductTable() {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[650px]">
+          <table className="w-full min-w-[750px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50 text-left">
                 <th className="px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -144,6 +149,10 @@ export default function ProductTable() {
 
                 <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Produto
+                </th>
+
+                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Qtd.
                 </th>
 
                 <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -163,32 +172,52 @@ export default function ProductTable() {
             <tbody>
               {produtos.map((produto) => {
                 const margem = calcularMargem(produto);
+                const estoque = Number(produto.estoque ?? 0);
 
                 return (
                   <tr
                     key={produto.id}
                     className="group border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50/70"
                   >
+                    {/* SKU */}
                     <td className="px-6 py-4">
                       <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] font-semibold text-slate-500">
                         {produto.sku || "-"}
                       </span>
                     </td>
 
+                    {/* PRODUTO */}
                     <td className="px-4 py-4 pr-6">
-                      <p className="max-w-[280px] truncate text-[12px] font-semibold text-slate-800">
+                      <p className="max-w-[250px] truncate text-[12px] font-semibold text-slate-800">
                         {produto.nome || "Produto sem nome"}
                       </p>
                     </td>
 
+                    {/* QUANTIDADE */}
+                    <td className="px-4 py-4">
+                      <span
+                        className={[
+                          "inline-flex min-w-[42px] items-center justify-center rounded-md px-2 py-1 text-[11px] font-bold",
+                          estoque > 0
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-red-50 text-red-600",
+                        ].join(" ")}
+                      >
+                        {formatarQuantidade(estoque)}
+                      </span>
+                    </td>
+
+                    {/* CUSTO UNITÁRIO */}
                     <td className="px-4 py-4 text-[12px] text-slate-500">
                       {formatarMoeda(produto.custo)}
                     </td>
 
+                    {/* VENDA UNITÁRIA */}
                     <td className="px-4 py-4 text-[12px] font-semibold text-slate-700">
                       {formatarMoeda(produto.preco_venda)}
                     </td>
 
+                    {/* MARGEM */}
                     <td className="px-4 py-4">
                       <span
                         className={[
