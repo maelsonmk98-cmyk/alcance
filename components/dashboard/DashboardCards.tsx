@@ -22,6 +22,8 @@ type Produto = {
   embalagem: number | null;
   frete: number | null;
   outras_despesas: number | null;
+  acos: number | null;
+  promocao: number | null;
 };
 
 export default function DashboardCards() {
@@ -33,7 +35,7 @@ export default function DashboardCards() {
       const { data, error } = await supabase
         .from("produtos")
         .select(
-          "sku, estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
+          "sku, estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas, acos, promocao"
         );
 
       if (error) {
@@ -65,8 +67,14 @@ export default function DashboardCards() {
     const frete = Number(produto.frete ?? 0);
     const outrasDespesas = Number(produto.outras_despesas ?? 0);
 
+    // ACOS e Promoção são percentuais aplicados sobre o preço de venda
+    const acos = Number(produto.acos ?? 0);
+    const promocao = Number(produto.promocao ?? 0);
+
     const valorComissao = venda * (comissao / 100);
     const valorImpostos = venda * (impostos / 100);
+    const valorAcos = venda * (acos / 100);
+    const valorPromocao = venda * (promocao / 100);
 
     return (
       venda -
@@ -75,7 +83,9 @@ export default function DashboardCards() {
       valorImpostos -
       embalagem -
       frete -
-      outrasDespesas
+      outrasDespesas -
+      valorAcos -
+      valorPromocao
     );
   }
 
@@ -210,7 +220,7 @@ export default function DashboardCards() {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => {
         const Icon = card.icon;
 
