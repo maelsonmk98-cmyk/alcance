@@ -13,6 +13,8 @@ type Produto = {
   embalagem: number | null;
   frete: number | null;
   outras_despesas: number | null;
+  acos: number | null;
+  promocao: number | null;
 };
 
 type Faixa = {
@@ -32,7 +34,7 @@ export default function MarginChart() {
       const { data, error } = await supabase
         .from("produtos")
         .select(
-          "estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
+          "estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas, acos, promocao"
         );
 
       if (error) {
@@ -59,6 +61,8 @@ export default function MarginChart() {
     const embalagem = Number(produto.embalagem ?? 0);
     const frete = Number(produto.frete ?? 0);
     const outras = Number(produto.outras_despesas ?? 0);
+    const acos = Number(produto.acos ?? 0);
+    const promocao = Number(produto.promocao ?? 0);
 
     if (venda <= 0) return 0;
 
@@ -69,7 +73,9 @@ export default function MarginChart() {
       venda * (impostos / 100) -
       embalagem -
       frete -
-      outras;
+      outras -
+      venda * (acos / 100) -
+      venda * (promocao / 100);
 
     return (lucro / venda) * 100;
   }
