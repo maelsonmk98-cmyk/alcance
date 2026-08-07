@@ -23,18 +23,36 @@ export default function VendasCards() {
 
   useEffect(() => {
     async function carregarVendas() {
-      const { data, error } = await supabase
-        .from("vendas")
-        .select("quantidade, faturamento, custo_total, lucro");
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (error) {
-        console.error("Erro ao carregar vendas:", error);
+        if (!user) {
+          setVendas([]);
+          setCarregando(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("vendas")
+          .select(
+            "quantidade, faturamento, custo_total, lucro"
+          )
+          .eq("user_id", user.id);
+
+        if (error) {
+          console.error("Erro ao carregar vendas:", error);
+          setVendas([]);
+        } else {
+          setVendas(data || []);
+        }
+      } catch (error) {
+        console.error("Erro inesperado ao carregar vendas:", error);
         setVendas([]);
-      } else {
-        setVendas(data || []);
+      } finally {
+        setCarregando(false);
       }
-
-      setCarregando(false);
     }
 
     carregarVendas();
@@ -67,14 +85,14 @@ export default function VendasCards() {
     0
   );
 
-  // Custo dos produtos vendidos
+  // Custo total dos produtos vendidos
   const custoTotal = vendas.reduce(
     (total, venda) =>
       total + Number(venda.custo_total ?? 0),
     0
   );
 
-  // Lucro líquido
+  // Lucro líquido total
   const lucroLiquido = vendas.reduce(
     (total, venda) =>
       total + Number(venda.lucro ?? 0),
@@ -152,8 +170,10 @@ export default function VendasCards() {
             key={card.title}
             className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_2px_12px_rgba(15,23,42,0.035)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_10px_30px_rgba(15,23,42,0.07)]"
           >
+            {/* Decoração */}
             <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-slate-50 opacity-60 transition-transform duration-300 group-hover:scale-150" />
 
+            {/* Ícone */}
             <div className="relative flex items-start justify-between">
               <div
                 className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.iconBg}`}
@@ -166,6 +186,7 @@ export default function VendasCards() {
               </div>
             </div>
 
+            {/* Informações */}
             <div className="relative mt-5">
               <p className="text-[12px] font-medium text-slate-500">
                 {card.title}
