@@ -17,6 +17,8 @@ type Produto = {
   embalagem: number | null;
   frete: number | null;
   outras_despesas: number | null;
+  acos: number | null;
+  promocao: number | null;
 };
 
 export default function ProductTable() {
@@ -28,7 +30,7 @@ export default function ProductTable() {
       const { data, error } = await supabase
         .from("produtos")
         .select(
-          "id, sku, nome, estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas"
+          "id, sku, nome, estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas, acos, promocao"
         )
         .order("id", { ascending: false })
         .limit(5);
@@ -65,6 +67,8 @@ export default function ProductTable() {
     const embalagem = Number(produto.embalagem ?? 0);
     const frete = Number(produto.frete ?? 0);
     const outrasDespesas = Number(produto.outras_despesas ?? 0);
+    const acos = Number(produto.acos ?? 0);
+    const promocao = Number(produto.promocao ?? 0);
 
     if (venda <= 0) {
       return 0;
@@ -72,6 +76,8 @@ export default function ProductTable() {
 
     const valorComissao = venda * (comissao / 100);
     const valorImpostos = venda * (impostos / 100);
+    const valorAcos = venda * (acos / 100);
+    const valorPromocao = venda * (promocao / 100);
 
     const lucro =
       venda -
@@ -80,7 +86,9 @@ export default function ProductTable() {
       valorImpostos -
       embalagem -
       frete -
-      outrasDespesas;
+      outrasDespesas -
+      valorAcos -
+      valorPromocao;
 
     return (lucro / venda) * 100;
   }
