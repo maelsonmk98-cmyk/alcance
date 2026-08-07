@@ -22,41 +22,41 @@ export default function VendasCards() {
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    async function carregarVendas() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          setVendas([]);
-          setCarregando(false);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("vendas")
-          .select(
-            "quantidade, faturamento, custo_total, lucro"
-          )
-          .eq("user_id", user.id);
-
-        if (error) {
-          console.error("Erro ao carregar vendas:", error);
-          setVendas([]);
-        } else {
-          setVendas(data || []);
-        }
-      } catch (error) {
-        console.error("Erro inesperado ao carregar vendas:", error);
-        setVendas([]);
-      } finally {
-        setCarregando(false);
-      }
-    }
-
     carregarVendas();
   }, []);
+
+  async function carregarVendas() {
+    setCarregando(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setVendas([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("vendas")
+        .select("quantidade, faturamento, custo_total, lucro")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Erro ao carregar vendas:", error);
+        setVendas([]);
+        return;
+      }
+
+      setVendas(data || []);
+    } catch (error) {
+      console.error("Erro inesperado ao carregar vendas:", error);
+      setVendas([]);
+    } finally {
+      setCarregando(false);
+    }
+  }
 
   function formatarMoeda(valor: number) {
     return valor.toLocaleString("pt-BR", {
@@ -65,57 +65,30 @@ export default function VendasCards() {
     });
   }
 
-  /*
-   * ============================================================
-   * INDICADORES
-   * ============================================================
-   */
-
-  // Quantidade total de unidades vendidas
   const quantidadeVendida = vendas.reduce(
-    (total, venda) =>
-      total + Number(venda.quantidade ?? 0),
+    (total, venda) => total + Number(venda.quantidade ?? 0),
     0
   );
 
-  // Faturamento total
   const faturamento = vendas.reduce(
-    (total, venda) =>
-      total + Number(venda.faturamento ?? 0),
+    (total, venda) => total + Number(venda.faturamento ?? 0),
     0
   );
 
-  // Custo total dos produtos vendidos
   const custoTotal = vendas.reduce(
-    (total, venda) =>
-      total + Number(venda.custo_total ?? 0),
+    (total, venda) => total + Number(venda.custo_total ?? 0),
     0
   );
 
-  // Lucro líquido total
   const lucroLiquido = vendas.reduce(
-    (total, venda) =>
-      total + Number(venda.lucro ?? 0),
+    (total, venda) => total + Number(venda.lucro ?? 0),
     0
   );
 
-  // Margem geral das vendas
-  const margemMedia =
-    faturamento > 0
-      ? (lucroLiquido / faturamento) * 100
-      : 0;
-
-  // ROI geral
   const roi =
     custoTotal > 0
       ? (lucroLiquido / custoTotal) * 100
       : 0;
-
-  /*
-   * ============================================================
-   * CARDS
-   * ============================================================
-   */
 
   const cards = [
     {
@@ -137,7 +110,7 @@ export default function VendasCards() {
     {
       title: "Custo das Vendas",
       value: formatarMoeda(custoTotal),
-      description: "Investimento nos produtos vendidos",
+      description: "Custos das vendas realizadas",
       icon: Wallet,
       iconBg: "bg-orange-50",
       iconColor: "text-orange-600",
@@ -153,7 +126,7 @@ export default function VendasCards() {
     {
       title: "ROI",
       value: `${roi.toFixed(2)}%`,
-      description: "Retorno sobre o investimento",
+      description: "Retorno sobre os custos",
       icon: BarChart3,
       iconBg: "bg-purple-50",
       iconColor: "text-purple-600",
@@ -170,10 +143,8 @@ export default function VendasCards() {
             key={card.title}
             className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_2px_12px_rgba(15,23,42,0.035)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_10px_30px_rgba(15,23,42,0.07)]"
           >
-            {/* Decoração */}
             <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-slate-50 opacity-60 transition-transform duration-300 group-hover:scale-150" />
 
-            {/* Ícone */}
             <div className="relative flex items-start justify-between">
               <div
                 className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.iconBg}`}
@@ -186,7 +157,6 @@ export default function VendasCards() {
               </div>
             </div>
 
-            {/* Informações */}
             <div className="relative mt-5">
               <p className="text-[12px] font-medium text-slate-500">
                 {card.title}

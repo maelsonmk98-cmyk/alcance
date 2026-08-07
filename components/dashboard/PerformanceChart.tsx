@@ -26,12 +26,32 @@ export default function PerformanceChart() {
   async function carregarDados() {
     setCarregando(true);
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setDados({
+        faturamento: 0,
+        custo: 0,
+        lucro: 0,
+      });
+
+      setCarregando(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("vendas")
-      .select("faturamento, custo_total, lucro");
+      .select("faturamento, custo_total, lucro")
+      .eq("user_id", user.id);
 
     if (error) {
-      console.error("Erro ao carregar desempenho:", error);
+      console.error(
+        "Erro ao carregar desempenho:",
+        error
+      );
+
       setCarregando(false);
       return;
     }
@@ -91,13 +111,15 @@ export default function PerformanceChart() {
     {
       nome: "Faturamento",
       valor: dados.faturamento,
-      percentual: (dados.faturamento / maiorValor) * 100,
+      percentual:
+        (dados.faturamento / maiorValor) * 100,
       classe: "bg-[#071E49]",
     },
     {
       nome: "Custo",
       valor: dados.custo,
-      percentual: (dados.custo / maiorValor) * 100,
+      percentual:
+        (dados.custo / maiorValor) * 100,
       classe: "bg-slate-300",
     },
     {
@@ -126,7 +148,10 @@ export default function PerformanceChart() {
         </div>
 
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50">
-          <BarChart3 size={17} className="text-[#F47B20]" />
+          <BarChart3
+            size={17}
+            className="text-[#F47B20]"
+          />
         </div>
       </div>
 

@@ -26,9 +26,27 @@ export default function SalesChart() {
   async function carregarDados() {
     setCarregando(true);
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setDados([]);
+      setCarregando(false);
+      return;
+    }
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() - 6);
+
     const { data, error } = await supabase
       .from("vendas")
       .select("data_venda, faturamento")
+      .eq("user_id", user.id)
+      .gte("data_venda", inicio.toISOString())
       .order("data_venda", { ascending: true });
 
     if (error) {
@@ -38,32 +56,31 @@ export default function SalesChart() {
       return;
     }
 
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-
     const dias: Dia[] = [];
 
     for (let i = 6; i >= 0; i--) {
-      const data = new Date(hoje);
-      data.setDate(data.getDate() - i);
+      const dataDia = new Date(hoje);
+      dataDia.setDate(dataDia.getDate() - i);
 
-      const chave = data.toISOString().split("T")[0];
-
-      const valor = (data as Date) && (data.getTime(), 0);
+      const chave = dataDia.toISOString().split("T")[0];
 
       dias.push({
         data: chave,
-        label: data.toLocaleDateString("pt-BR", {
-          weekday: "short",
-        }).replace(".", ""),
-        valor,
+        label: dataDia
+          .toLocaleDateString("pt-BR", {
+            weekday: "short",
+          })
+          .replace(".", ""),
+        valor: 0,
       });
     }
 
     (data || []).forEach((venda: Venda) => {
       const chave = venda.data_venda.split("T")[0];
 
-      const dia = dias.find((item) => item.data === chave);
+      const dia = dias.find(
+        (item) => item.data === chave
+      );
 
       if (dia) {
         dia.valor += Number(venda.faturamento ?? 0);
@@ -74,7 +91,10 @@ export default function SalesChart() {
     setCarregando(false);
   }
 
-  const maiorValor = Math.max(...dados.map((item) => item.valor), 1);
+  const maiorValor = Math.max(
+    ...dados.map((item) => item.valor),
+    1
+  );
 
   const faturamentoTotal = dados.reduce(
     (total, item) => total + item.valor,
@@ -102,7 +122,10 @@ export default function SalesChart() {
         </div>
 
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
-          <TrendingUp size={17} className="text-blue-600" />
+          <TrendingUp
+            size={17}
+            className="text-blue-600"
+          />
         </div>
       </div>
 
@@ -112,7 +135,9 @@ export default function SalesChart() {
         </p>
 
         <p className="mt-1 text-xl font-bold text-slate-900">
-          {carregando ? "..." : formatarMoeda(faturamentoTotal)}
+          {carregando
+            ? "..."
+            : formatarMoeda(faturamentoTotal)}
         </p>
       </div>
 
@@ -125,7 +150,10 @@ export default function SalesChart() {
           dados.map((item) => {
             const altura =
               item.valor > 0
-                ? Math.max((item.valor / maiorValor) * 100, 5)
+                ? Math.max(
+                    (item.valor / maiorValor) * 100,
+                    5
+                  )
                 : 3;
 
             return (
@@ -134,13 +162,17 @@ export default function SalesChart() {
                 className="flex h-full flex-1 flex-col items-center justify-end"
               >
                 <div className="mb-2 text-[10px] font-semibold text-slate-500">
-                  {item.valor > 0 ? formatarMoeda(item.valor) : ""}
+                  {item.valor > 0
+                    ? formatarMoeda(item.valor)
+                    : ""}
                 </div>
 
                 <div className="flex h-[140px] w-full items-end justify-center">
                   <div
                     className="w-full max-w-[42px] rounded-t-lg bg-[#071E49] transition-all duration-500 hover:bg-[#F47B20]"
-                    style={{ height: `${altura}%` }}
+                    style={{
+                      height: `${altura}%`,
+                    }}
                     title={formatarMoeda(item.valor)}
                   />
                 </div>
