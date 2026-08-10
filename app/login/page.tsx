@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,27 +18,26 @@ export default function LoginPage() {
     setCarregando(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: senha,
-      });
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: senha,
+        });
 
       if (error) {
         setErro(error.message);
-        setCarregando(false);
         return;
       }
 
-console.log("Usuário logado:", data.user);
-console.log("Sessão:", data.session);
+      if (!data.session) {
+        setErro("Não foi possível criar a sessão.");
+        return;
+      }
 
-alert(data.session ? "TEM SESSÃO" : "SEM SESSÃO");
-
-router.push("/");
-router.refresh();
-
+      router.replace("/dashboard");
+      router.refresh();
     } catch (err) {
-      console.error(err);
+      console.error("Erro no login:", err);
       setErro("Erro inesperado ao fazer login.");
     } finally {
       setCarregando(false);
@@ -45,46 +45,72 @@ router.refresh();
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-100">
+    <main className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
+      <div className="w-full max-w-[420px] rounded-2xl bg-white p-8 shadow-xl">
+        <div className="mb-7 text-center">
+          <h1 className="text-3xl font-bold text-[#071E49]">
+            Entrar
+          </h1>
 
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-[420px]">
-
-        <h1 className="text-3xl font-bold mb-6 text-center">
-          Login
-        </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Acesse sua conta Alcance
+          </p>
+        </div>
 
         <input
-          className="border rounded-xl p-3 w-full mb-4"
+          className="mb-4 w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-[#071E49]"
           placeholder="Digite seu e-mail"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              entrar();
+            }
+          }}
         />
 
         <input
-          className="border rounded-xl p-3 w-full mb-4"
+          className="mb-4 w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-[#071E49]"
           placeholder="Digite sua senha"
           type="password"
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              entrar();
+            }
+          }}
         />
 
         {erro && (
-          <div className="text-red-500 text-sm mb-4">
+          <div className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
             {erro}
           </div>
         )}
 
         <button
+          type="button"
           onClick={entrar}
           disabled={carregando}
-          className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white rounded-xl p-3 font-semibold"
+          className="w-full rounded-xl bg-[#F47B20] p-3 font-semibold text-white transition hover:bg-[#E96F17] disabled:bg-slate-400"
         >
           {carregando ? "Entrando..." : "Entrar"}
         </button>
 
-      </div>
+        <div className="mt-6 border-t border-slate-100 pt-6 text-center">
+          <p className="text-sm text-slate-500">
+            Ainda não possui uma conta?
+          </p>
 
+          <Link
+            href="/cadastro"
+            className="mt-2 inline-block font-semibold text-[#071E49] hover:underline"
+          >
+            Criar minha conta
+          </Link>
+        </div>
+      </div>
     </main>
   );
 }
