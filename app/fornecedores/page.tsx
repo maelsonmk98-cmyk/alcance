@@ -14,6 +14,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import MainLayout from "@/components/layout/MainLayout";
 
 type Fornecedor = {
   id: number;
@@ -731,7 +732,9 @@ export default function FornecedoresPage() {
   const preview = linhasPlanilha.slice(0, 5);
 
   return (
-    <div className="space-y-6">
+    <MainLayout>
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-[1600px] space-y-6 p-6 lg:p-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
@@ -1430,6 +1433,8 @@ export default function FornecedoresPage() {
             </div>
           </div>
         )}
-    </div>
+        </div>
+      </div>
+    </MainLayout>
   );
 }
