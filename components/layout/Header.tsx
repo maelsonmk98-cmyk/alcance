@@ -1,20 +1,40 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   Plus,
   Search,
+  LogOut,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function Header() {
+  const router = useRouter();
+
+  async function sair() {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Erro ao sair:", error);
+      alert("Não foi possível sair da conta.");
+      return;
+    }
+
+    router.replace("/login");
+    router.refresh();
+  }
+
   return (
-    <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-5 sm:px-6 lg:px-8">
+    <header className="flex h-16 w-full items-center border-b border-slate-200 bg-white px-4 md:px-6">
       {/* Busca */}
-      <div className="hidden w-full max-w-[420px] md:flex">
-        <div className="group flex h-10 w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-slate-400 transition-all duration-200 focus-within:border-[#071E49]/20 focus-within:bg-white focus-within:shadow-sm">
+      <div className="hidden w-full max-w-md items-center md:flex">
+        <div className="flex h-10 w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5">
           <Search
             size={17}
             strokeWidth={1.8}
-            className="shrink-0 text-slate-400"
+            className="text-slate-400"
           />
 
           <span className="text-[12px] text-slate-400">
@@ -54,6 +74,19 @@ export default function Header() {
             Novo Produto
           </span>
         </Link>
+
+        {/* Sair */}
+        <button
+          type="button"
+          onClick={sair}
+          className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-[12px] font-semibold text-slate-600 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+        >
+          <LogOut size={16} strokeWidth={2} />
+
+          <span className="hidden sm:inline">
+            Sair
+          </span>
+        </button>
       </div>
     </header>
   );
