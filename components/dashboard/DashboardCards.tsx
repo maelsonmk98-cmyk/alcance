@@ -66,8 +66,6 @@ export default function DashboardCards() {
     const embalagem = Number(produto.embalagem ?? 0);
     const frete = Number(produto.frete ?? 0);
     const outrasDespesas = Number(produto.outras_despesas ?? 0);
-
-    // ACOS e Promoção são percentuais aplicados sobre o preço de venda
     const acos = Number(produto.acos ?? 0);
     const promocao = Number(produto.promocao ?? 0);
 
@@ -89,13 +87,10 @@ export default function DashboardCards() {
     );
   }
 
-  /*
-   * ============================================================
-   * QUANTIDADES
-   * ============================================================
-   */
+  // ============================================================
+  // QUANTIDADES
+  // ============================================================
 
-  // Conta SKUs distintos
   const skus = new Set(
     produtos
       .map((produto) => produto.sku?.trim())
@@ -104,19 +99,15 @@ export default function DashboardCards() {
 
   const totalSkus = skus.size;
 
-  // Soma todas as unidades em estoque
   const totalProdutos = produtos.reduce(
     (total, produto) => total + Number(produto.estoque ?? 0),
     0
   );
 
-  /*
-   * ============================================================
-   * CÁLCULOS FINANCEIROS
-   * ============================================================
-   */
+  // ============================================================
+  // CÁLCULOS FINANCEIROS
+  // ============================================================
 
-  // Valor investido = custo unitário × quantidade em estoque
   const valorInvestido = produtos.reduce((total, produto) => {
     const custo = Number(produto.custo ?? 0);
     const quantidade = Number(produto.estoque ?? 0);
@@ -124,7 +115,6 @@ export default function DashboardCards() {
     return total + custo * quantidade;
   }, 0);
 
-  // Faturamento = preço de venda × quantidade em estoque
   const faturamento = produtos.reduce((total, produto) => {
     const venda = Number(produto.preco_venda ?? 0);
     const quantidade = Number(produto.estoque ?? 0);
@@ -132,7 +122,6 @@ export default function DashboardCards() {
     return total + venda * quantidade;
   }, 0);
 
-  // Lucro = lucro unitário × quantidade em estoque
   const lucroLiquido = produtos.reduce((total, produto) => {
     const quantidade = Number(produto.estoque ?? 0);
     const lucroUnitario = calcularLucro(produto);
@@ -140,125 +129,206 @@ export default function DashboardCards() {
     return total + lucroUnitario * quantidade;
   }, 0);
 
-  // Margem = lucro / faturamento
   const margemMedia =
-    faturamento > 0
-      ? (lucroLiquido / faturamento) * 100
-      : 0;
+    faturamento > 0 ? (lucroLiquido / faturamento) * 100 : 0;
 
-  // ROI = lucro / valor investido
   const roi =
-    valorInvestido > 0
-      ? (lucroLiquido / valorInvestido) * 100
-      : 0;
+    valorInvestido > 0 ? (lucroLiquido / valorInvestido) * 100 : 0;
 
-  /*
-   * ============================================================
-   * CARDS
-   * ============================================================
-   */
+  // ============================================================
+  // CARDS
+  // ============================================================
 
   const cards = [
     {
       title: "SKUs Cadastrados",
       value: carregando ? "..." : totalSkus.toString(),
-      description: "SKUs cadastrados",
+      description: "Produtos diferentes cadastrados",
       icon: Package,
-      iconBg: "bg-[#071E49]/[0.06]",
-      iconColor: "text-[#071E49]",
+      iconBg: "bg-blue-500/15",
+      iconColor: "text-blue-400",
+      glow: "group-hover:shadow-blue-500/10",
+      accent: "from-blue-500/10",
     },
     {
       title: "Produtos em Estoque",
       value: carregando
         ? "..."
         : totalProdutos.toLocaleString("pt-BR"),
-      description: "Unidades em estoque",
+      description: "Unidades disponíveis em estoque",
       icon: Boxes,
-      iconBg: "bg-blue-50",
-      iconColor: "text-blue-600",
+      iconBg: "bg-cyan-500/15",
+      iconColor: "text-cyan-400",
+      glow: "group-hover:shadow-cyan-500/10",
+      accent: "from-cyan-500/10",
     },
     {
       title: "Valor Investido",
       value: carregando ? "..." : formatarMoeda(valorInvestido),
-      description: "Custo total do estoque",
+      description: "Capital aplicado no estoque",
       icon: Wallet,
-      iconBg: "bg-violet-50",
-      iconColor: "text-violet-600",
+      iconBg: "bg-amber-500/15",
+      iconColor: "text-amber-400",
+      glow: "group-hover:shadow-amber-500/10",
+      accent: "from-amber-500/10",
     },
     {
-      title: "Margem Média",
-      value: carregando ? "..." : `${margemMedia.toFixed(2)}%`,
-      description: "Margem sobre as vendas",
-      icon: TrendingUp,
-      iconBg: "bg-emerald-50",
-      iconColor: "text-emerald-600",
+      title: "Lucro Líquido",
+      value: carregando ? "..." : formatarMoeda(lucroLiquido),
+      description: "Lucro estimado sobre o estoque",
+      icon: DollarSign,
+      iconBg: "bg-emerald-500/15",
+      iconColor: "text-emerald-400",
+      glow: "group-hover:shadow-emerald-500/10",
+      accent: "from-emerald-500/10",
     },
     {
       title: "ROI",
       value: carregando ? "..." : `${roi.toFixed(2)}%`,
       description: "Retorno sobre investimento",
       icon: Percent,
-      iconBg: "bg-amber-50",
-      iconColor: "text-amber-600",
+      iconBg: "bg-violet-500/15",
+      iconColor: "text-violet-400",
+      glow: "group-hover:shadow-violet-500/10",
+      accent: "from-violet-500/10",
     },
     {
-      title: "Lucro Líquido",
-      value: carregando ? "..." : formatarMoeda(lucroLiquido),
-      description: "Lucro considerando estoque",
-      icon: DollarSign,
-      iconBg: "bg-[#F47B20]/10",
+      title: "Margem Média",
+      value: carregando ? "..." : `${margemMedia.toFixed(2)}%`,
+      description: "Margem média dos produtos",
+      icon: TrendingUp,
+      iconBg: "bg-[#F47B20]/15",
       iconColor: "text-[#F47B20]",
+      glow: "group-hover:shadow-orange-500/10",
+      accent: "from-orange-500/10",
     },
     {
-      title: "Faturamento",
+      title: "Faturamento Potencial",
       value: carregando ? "..." : formatarMoeda(faturamento),
-      description: "Valor total em estoque",
+      description: "Valor potencial do estoque",
       icon: Wallet,
-      iconBg: "bg-[#071E49]/[0.06]",
-      iconColor: "text-[#071E49]",
+      iconBg: "bg-indigo-500/15",
+      iconColor: "text-indigo-400",
+      glow: "group-hover:shadow-indigo-500/10",
+      accent: "from-indigo-500/10",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
       {cards.map((card) => {
         const Icon = card.icon;
 
         return (
           <div
             key={card.title}
-            className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_2px_12px_rgba(15,23,42,0.035)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_10px_30px_rgba(15,23,42,0.07)]"
+            className={`
+              group
+              relative
+              min-h-[172px]
+              overflow-hidden
+              rounded-2xl
+              border
+              border-slate-700/60
+              bg-[#0d1a2d]
+              p-5
+              shadow-[0_8px_30px_rgba(0,0,0,0.18)]
+              transition-all
+              duration-300
+              hover:-translate-y-1
+              hover:border-slate-600
+              hover:shadow-2xl
+              ${card.glow}
+            `}
           >
-            <div className="absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-slate-50 opacity-60 transition-transform duration-300 group-hover:scale-150" />
+            {/* Glow superior */}
+            <div
+              className={`
+                pointer-events-none
+                absolute
+                inset-x-0
+                top-0
+                h-24
+                bg-gradient-to-b
+                ${card.accent}
+                to-transparent
+                opacity-80
+              `}
+            />
 
-            <div className="relative flex items-start justify-between">
-              <div
-                className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.iconBg}`}
-              >
-                <Icon
-                  size={20}
-                  strokeWidth={2}
-                  className={card.iconColor}
-                />
+            {/* Brilho lateral */}
+            <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/[0.025] blur-2xl transition-all duration-300 group-hover:bg-white/[0.05]" />
+
+            <div className="relative flex h-full flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between">
+                  <div
+                    className={`
+                      flex
+                      h-11
+                      w-11
+                      items-center
+                      justify-center
+                      rounded-xl
+                      border
+                      border-white/[0.04]
+                      ${card.iconBg}
+                    `}
+                  >
+                    <Icon
+                      size={21}
+                      strokeWidth={2}
+                      className={card.iconColor}
+                    />
+                  </div>
+
+                  <div
+                    className="
+                      flex
+                      h-8
+                      w-8
+                      items-center
+                      justify-center
+                      rounded-lg
+                      border
+                      border-slate-700/60
+                      bg-[#111f34]
+                      text-slate-500
+                      transition-all
+                      duration-300
+                      group-hover:border-slate-600
+                      group-hover:text-slate-300
+                    "
+                  >
+                    <ArrowUpRight size={15} />
+                  </div>
+                </div>
+
+                <p className="mt-5 text-[12px] font-medium text-slate-400">
+                  {card.title}
+                </p>
+
+                <h2
+                  className="
+                    mt-1.5
+                    truncate
+                    text-[23px]
+                    font-bold
+                    tracking-[-0.025em]
+                    text-white
+                  "
+                >
+                  {card.value}
+                </h2>
               </div>
 
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 text-slate-300 transition group-hover:bg-slate-100 group-hover:text-slate-500">
-                <ArrowUpRight size={14} />
+              <div className="mt-3 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+
+                <p className="text-[10px] text-slate-500">
+                  {card.description}
+                </p>
               </div>
-            </div>
-
-            <div className="relative mt-5">
-              <p className="text-[12px] font-medium text-slate-500">
-                {card.title}
-              </p>
-
-              <h2 className="mt-1.5 text-[24px] font-bold tracking-[-0.025em] text-slate-900">
-                {card.value}
-              </h2>
-
-              <p className="mt-1 text-[11px] text-slate-400">
-                {card.description}
-              </p>
             </div>
           </div>
         );
