@@ -1,10 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { TrendingUp } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  TrendingUp,
+  PieChart,
+} from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
 
 type Produto = {
+  categoria: string | null;
   estoque: number | null;
   custo: number | null;
   preco_venda: number | null;
@@ -21,50 +31,138 @@ type Faixa = {
   label: string;
   quantidade: number;
   percentual: number;
+  cor: string;
   barra: string;
-  ponto: string;
+  texto: string;
 };
 
+type Categoria = {
+  nome: string;
+  quantidade: number;
+  percentual: number;
+  cor: string;
+};
+
+const CORES_CATEGORIA = [
+  "#3B82F6",
+  "#10B981",
+  "#F59E0B",
+  "#A855F7",
+  "#F97316",
+  "#06B6D4",
+];
+
 export default function MarginChart() {
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [carregando, setCarregando] = useState(true);
+  const [produtos, setProdutos] =
+    useState<Produto[]>([]);
+
+  const [carregando, setCarregando] =
+    useState(true);
 
   useEffect(() => {
     async function carregarProdutos() {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select(
-          "estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas, acos, promocao"
-        );
+      setCarregando(true);
 
-      if (error) {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          setProdutos([]);
+          return;
+        }
+
+        const { data, error } =
+          await supabase
+            .from("produtos")
+            .select(
+              `
+              categoria,
+              estoque,
+              custo,
+              preco_venda,
+              comissao,
+              impostos,
+              embalagem,
+              frete,
+              outras_despesas,
+              acos,
+              promocao
+              `
+            )
+            .eq("user_id", user.id);
+
+        if (error) {
+          console.error(
+            "Erro ao carregar produtos para os gráficos:",
+            error
+          );
+
+          setProdutos([]);
+          return;
+        }
+
+        setProdutos(
+          (data || []) as Produto[]
+        );
+      } catch (error) {
         console.error(
-          "Erro ao carregar produtos para o gráfico:",
+          "Erro inesperado ao carregar gráficos:",
           error
         );
-        setProdutos([]);
-      } else {
-        setProdutos(data || []);
-      }
 
-      setCarregando(false);
+        setProdutos([]);
+      } finally {
+        setCarregando(false);
+      }
     }
 
     carregarProdutos();
   }, []);
 
-  function calcularMargem(produto: Produto) {
-    const custo = Number(produto.custo ?? 0);
-    const venda = Number(produto.preco_venda ?? 0);
-    const comissao = Number(produto.comissao ?? 0);
-    const impostos = Number(produto.impostos ?? 0);
-    const embalagem = Number(produto.embalagem ?? 0);
-    const frete = Number(produto.frete ?? 0);
-    const outras = Number(produto.outras_despesas ?? 0);
-    const acos = Number(produto.acos ?? 0);
-    const promocao = Number(produto.promocao ?? 0);
+  function calcularMargem(
+    produto: Produto
+  ) {
+    const custo = Number(
+      produto.custo ?? 0
+    );
 
-    if (venda <= 0) return 0;
+    const venda = Number(
+      produto.preco_venda ?? 0
+    );
+
+    const comissao = Number(
+      produto.comissao ?? 0
+    );
+
+    const impostos = Number(
+      produto.impostos ?? 0
+    );
+
+    const embalagem = Number(
+      produto.embalagem ?? 0
+    );
+
+    const frete = Number(
+      produto.frete ?? 0
+    );
+
+    const outras = Number(
+      produto.outras_despesas ?? 0
+    );
+
+    const acos = Number(
+      produto.acos ?? 0
+    );
+
+    const promocao = Number(
+      produto.promocao ?? 0
+    );
+
+    if (venda <= 0) {
+      return 0;
+    }
 
     const lucro =
       venda -
@@ -77,245 +175,669 @@ export default function MarginChart() {
       venda * (acos / 100) -
       venda * (promocao / 100);
 
-    return (lucro / venda) * 100;
+    return (
+      (lucro / venda) * 100
+    );
   }
 
-  /*
-   * ============================================================
-   * DISTRIBUIÇÃO POR QUANTIDADE DE PRODUTOS
-   * ============================================================
-   *
-   * Cada SKU pode possuir várias unidades em estoque.
-   *
-   * Exemplo:
-   *
-   * SKU A = 10 unidades com margem de 25%
-   *
-   * As 10 unidades entram na faixa de 20% a 30%.
-   *
-   * Não contamos apenas 1 SKU.
-   */
+  // ============================================================
+  // TOTAL DE UNIDADES
+  // ============================================================
 
-  let totalProdutos = 0;
+  const totalProdutos =
+    produtos.reduce(
+      (total, produto) =>
+        total +
+        Math.max(
+          0,
+          Number(
+            produto.estoque ?? 0
+          )
+        ),
+      0
+    );
+
+  // ============================================================
+  // CATEGORIAS
+  // ============================================================
+
+  const categorias =
+    useMemo<Categoria[]>(
+      () => {
+        const mapa =
+          new Map<string, number>();
+
+        produtos.forEach(
+          (produto) => {
+            const quantidade =
+              Math.max(
+                0,
+                Number(
+                  produto.estoque ?? 0
+                )
+              );
+
+            const categoria =
+              produto.categoria?.trim() ||
+              "Sem categoria";
+
+            mapa.set(
+              categoria,
+              (mapa.get(categoria) || 0) +
+                quantidade
+            );
+          }
+        );
+
+        const lista =
+          Array.from(
+            mapa.entries()
+          )
+            .map(
+              ([nome, quantidade]) => ({
+                nome,
+                quantidade,
+              })
+            )
+            .sort(
+              (a, b) =>
+                b.quantidade -
+                a.quantidade
+            );
+
+        let resultado =
+          lista;
+
+        if (lista.length > 5) {
+          const principais =
+            lista.slice(0, 4);
+
+          const outros =
+            lista
+              .slice(4)
+              .reduce(
+                (total, item) =>
+                  total +
+                  item.quantidade,
+                0
+              );
+
+          resultado = [
+            ...principais,
+            {
+              nome: "Outros",
+              quantidade: outros,
+            },
+          ];
+        }
+
+        return resultado.map(
+          (
+            categoria,
+            index
+          ) => ({
+            ...categoria,
+
+            percentual:
+              totalProdutos > 0
+                ? (categoria.quantidade /
+                    totalProdutos) *
+                  100
+                : 0,
+
+            cor:
+              CORES_CATEGORIA[
+                index %
+                  CORES_CATEGORIA.length
+              ],
+          })
+        );
+      },
+      [
+        produtos,
+        totalProdutos,
+      ]
+    );
+
+  // ============================================================
+  // DONUT CATEGORIAS
+  // ============================================================
+
+  const raioCategoria = 44;
+
+  const circunferenciaCategoria =
+    2 *
+    Math.PI *
+    raioCategoria;
+
+  const segmentosCategoria =
+    useMemo(() => {
+      if (totalProdutos <= 0) {
+        return [];
+      }
+
+      let acumulado = 0;
+
+      return categorias.map(
+        (categoria) => {
+          const tamanho =
+            (categoria.quantidade /
+              totalProdutos) *
+            circunferenciaCategoria;
+
+          const item = {
+            ...categoria,
+
+            dasharray: `${tamanho} ${
+              circunferenciaCategoria -
+              tamanho
+            }`,
+
+            dashoffset:
+              -acumulado,
+          };
+
+          acumulado += tamanho;
+
+          return item;
+        }
+      );
+    }, [
+      categorias,
+      totalProdutos,
+      circunferenciaCategoria,
+    ]);
+
+  // ============================================================
+  // MARGEM POR FAIXA
+  // ============================================================
+
   let acima30 = 0;
   let entre20e30 = 0;
   let entre10e20 = 0;
   let abaixo10 = 0;
 
-  produtos.forEach((produto) => {
-    const quantidade = Math.max(
-      0,
-      Number(produto.estoque ?? 0)
-    );
+  produtos.forEach(
+    (produto) => {
+      const quantidade =
+        Math.max(
+          0,
+          Number(
+            produto.estoque ?? 0
+          )
+        );
 
-    const margem = calcularMargem(produto);
+      const margem =
+        calcularMargem(
+          produto
+        );
 
-    totalProdutos += quantidade;
-
-    if (margem > 30) {
-      acima30 += quantidade;
-    } else if (margem >= 20) {
-      entre20e30 += quantidade;
-    } else if (margem >= 10) {
-      entre10e20 += quantidade;
-    } else {
-      abaixo10 += quantidade;
+      if (margem > 30) {
+        acima30 +=
+          quantidade;
+      } else if (
+        margem >= 20
+      ) {
+        entre20e30 +=
+          quantidade;
+      } else if (
+        margem >= 10
+      ) {
+        entre10e20 +=
+          quantidade;
+      } else {
+        abaixo10 +=
+          quantidade;
+      }
     }
-  });
+  );
 
-  const percentualAcima30 =
-    totalProdutos === 0
-      ? 0
-      : (acima30 / totalProdutos) * 100;
-
-  const percentualEntre20e30 =
-    totalProdutos === 0
-      ? 0
-      : (entre20e30 / totalProdutos) * 100;
-
-  const percentualEntre10e20 =
-    totalProdutos === 0
-      ? 0
-      : (entre10e20 / totalProdutos) * 100;
-
-  const percentualAbaixo10 =
-    totalProdutos === 0
-      ? 0
-      : (abaixo10 / totalProdutos) * 100;
-
-  /*
-   * ============================================================
-   * GRÁFICO CIRCULAR
-   * ============================================================
-   */
-
-  const raio = 55;
-  const circunferencia = 2 * Math.PI * raio;
-
-  const offset =
-    circunferencia -
-    (percentualAcima30 / 100) * circunferencia;
-
-  /*
-   * ============================================================
-   * FAIXAS
-   * ============================================================
-   */
+  function percentual(
+    quantidade: number
+  ) {
+    return totalProdutos > 0
+      ? (quantidade /
+          totalProdutos) *
+          100
+      : 0;
+  }
 
   const faixas: Faixa[] = [
     {
-      label: "Acima de 30%",
-      quantidade: acima30,
-      percentual: percentualAcima30,
-      barra: "bg-emerald-500",
-      ponto: "bg-emerald-500",
+      label:
+        "Acima de 30%",
+      quantidade:
+        acima30,
+      percentual:
+        percentual(
+          acima30
+        ),
+      cor: "#10B981",
+      barra:
+        "bg-emerald-500",
+      texto:
+        "text-emerald-400",
     },
+
     {
-      label: "Entre 20% e 30%",
-      quantidade: entre20e30,
-      percentual: percentualEntre20e30,
-      barra: "bg-blue-500",
-      ponto: "bg-blue-500",
+      label:
+        "Entre 20% e 30%",
+      quantidade:
+        entre20e30,
+      percentual:
+        percentual(
+          entre20e30
+        ),
+      cor: "#3B82F6",
+      barra:
+        "bg-blue-500",
+      texto:
+        "text-blue-400",
     },
+
     {
-      label: "Entre 10% e 20%",
-      quantidade: entre10e20,
-      percentual: percentualEntre10e20,
-      barra: "bg-orange-500",
-      ponto: "bg-orange-500",
+      label:
+        "Entre 10% e 20%",
+      quantidade:
+        entre10e20,
+      percentual:
+        percentual(
+          entre10e20
+        ),
+      cor: "#F59E0B",
+      barra:
+        "bg-amber-500",
+      texto:
+        "text-amber-400",
     },
+
     {
-      label: "Abaixo de 10%",
-      quantidade: abaixo10,
-      percentual: percentualAbaixo10,
-      barra: "bg-red-500",
-      ponto: "bg-red-500",
+      label:
+        "Abaixo de 10%",
+      quantidade:
+        abaixo10,
+      percentual:
+        percentual(
+          abaixo10
+        ),
+      cor: "#EF4444",
+      barra:
+        "bg-red-500",
+      texto:
+        "text-red-400",
     },
   ];
 
+  // ============================================================
+  // DONUT MARGEM
+  // ============================================================
+
+  const raioMargem = 39;
+
+  const circunferenciaMargem =
+    2 *
+    Math.PI *
+    raioMargem;
+
+  const percentualAcima30 =
+    percentual(acima30);
+
+  const offsetMargem =
+    circunferenciaMargem -
+    (percentualAcima30 /
+      100) *
+      circunferenciaMargem;
+
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
-      {/* CABEÇALHO */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
-            Margem por Faixa
-          </h2>
+    <div
+  className="
+    grid
+    h-full
+    min-h-0
+    grid-rows-[185px_minmax(0,1fr)]
+    gap-3
+  "
+>
+      {/* ======================================================
+          DISTRIBUIÇÃO POR CATEGORIA
+      ====================================================== */}
+      <div
+        className="
+          relative
+          h-full
+          overflow-hidden
+          rounded-[14px]
+          border
+          border-[#233754]
+          bg-[#0d1b2f]
+          px-4
+          py-3
+          shadow-[0_8px_24px_rgba(0,0,0,0.15)]
+        "
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-violet-500/[0.03] to-transparent" />
 
-          <p className="mt-1 text-[12px] text-slate-500">
-            Distribuição das margens por quantidade de produtos.
-          </p>
-        </div>
+        <div className="relative flex h-full flex-col">
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
-          <TrendingUp
-            size={17}
-            strokeWidth={2}
-            className="text-emerald-600"
-          />
-        </div>
-      </div>
+          {/* CABEÇALHO */}
+          <div className="flex shrink-0 items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-white">
+                Distribuição por Categoria
+              </h2>
 
-      {/* GRÁFICO CIRCULAR */}
-      <div className="flex justify-center py-7">
-        <div className="relative h-36 w-36">
-          <svg
-            width="144"
-            height="144"
-            viewBox="0 0 144 144"
-            className="-rotate-90"
-          >
-            <circle
-              cx="72"
-              cy="72"
-              r={raio}
-              fill="none"
-              stroke="#e5e7eb"
-              strokeWidth="12"
-            />
-
-            <circle
-              cx="72"
-              cy="72"
-              r={raio}
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="12"
-              strokeLinecap="round"
-              strokeDasharray={circunferencia}
-              strokeDashoffset={offset}
-              style={{
-                transition: "stroke-dashoffset .6s ease",
-              }}
-            />
-          </svg>
-
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-[29px] font-bold text-slate-900">
-              {carregando
-                ? "..."
-                : `${percentualAcima30.toFixed(0)}%`}
-            </p>
-
-            <p className="text-[11px] text-slate-500">
-              acima de 30%
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* FAIXAS */}
-      <div className="space-y-4">
-        {faixas.map((faixa) => (
-          <div key={faixa.label}>
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`h-2 w-2 rounded-full ${faixa.ponto}`}
-                />
-
-                <span className="text-sm text-slate-600">
-                  {faixa.label}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {carregando
-                    ? "..."
-                    : faixa.quantidade.toLocaleString("pt-BR")}
-                </span>
-
-                <span className="text-xs text-slate-400">
-                  {carregando
-                    ? ""
-                    : `(${faixa.percentual.toFixed(0)}%)`}
-                </span>
-              </div>
+              <p className="mt-0.5 text-[7px] text-slate-600">
+                Participação no estoque por categoria
+              </p>
             </div>
 
-            <div className="h-2 rounded-full bg-slate-100">
-              <div
-                className={`h-full rounded-full ${faixa.barra}`}
-                style={{
-                  width: `${faixa.percentual}%`,
-                  transition: "width .6s ease",
-                }}
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-violet-500/10 bg-violet-500/10">
+              <PieChart
+                size={13}
+                className="text-violet-400"
               />
             </div>
           </div>
-        ))}
+
+          {/* CONTEÚDO */}
+          <div className="grid min-h-0 flex-1 grid-cols-[115px_1fr] items-center gap-3">
+
+            {/* DONUT */}
+            <div className="relative flex items-center justify-center">
+              <svg
+                width="102"
+                height="102"
+                viewBox="0 0 110 110"
+                className="-rotate-90"
+              >
+                <circle
+                  cx="55"
+                  cy="55"
+                  r={raioCategoria}
+                  fill="none"
+                  stroke="#17263a"
+                  strokeWidth="13"
+                />
+
+                {segmentosCategoria.map(
+                  (segmento) => (
+                    <circle
+                      key={
+                        segmento.nome
+                      }
+                      cx="55"
+                      cy="55"
+                      r={
+                        raioCategoria
+                      }
+                      fill="none"
+                      stroke={
+                        segmento.cor
+                      }
+                      strokeWidth="13"
+                      strokeDasharray={
+                        segmento.dasharray
+                      }
+                      strokeDashoffset={
+                        segmento.dashoffset
+                      }
+                    />
+                  )
+                )}
+              </svg>
+
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <p className="text-[16px] font-bold text-white">
+                  {carregando
+                    ? "..."
+                    : totalProdutos.toLocaleString(
+                        "pt-BR"
+                      )}
+                </p>
+
+                <p className="text-[7px] text-slate-600">
+                  unidades
+                </p>
+              </div>
+            </div>
+
+            {/* LEGENDA */}
+            <div className="min-w-0 space-y-1.5">
+              {carregando ? (
+                <p className="text-[8px] text-slate-500">
+                  Carregando...
+                </p>
+              ) : categorias.length === 0 ? (
+                <p className="text-[8px] text-slate-500">
+                  Nenhuma categoria disponível
+                </p>
+              ) : (
+                categorias.map(
+                  (
+                    categoria
+                  ) => (
+                    <div
+                      key={
+                        categoria.nome
+                      }
+                      className="flex items-center gap-2"
+                    >
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor:
+                            categoria.cor,
+                        }}
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-[7px] text-slate-400">
+                            {
+                              categoria.nome
+                            }
+                          </span>
+
+                          <span className="text-[7px] font-semibold text-slate-300">
+                            {categoria.percentual.toFixed(
+                              0
+                            )}
+                            %
+                          </span>
+                        </div>
+
+                        <p className="text-[8px] font-semibold text-white">
+                          {categoria.quantidade.toLocaleString(
+                            "pt-BR"
+                          )}{" "}
+                          un.
+                        </p>
+                      </div>
+                    </div>
+                  )
+                )
+              )}
+            </div>
+          </div>
+
+          {/* RODAPÉ */}
+          <div className="shrink-0 border-t border-[#233754]/70 pt-1.5">
+            <p className="text-center text-[6px] text-slate-600">
+              Distribuição considerando a quantidade atual em estoque
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* RODAPÉ */}
-      <div className="mt-6 border-t border-slate-100 pt-4">
-        <p className="text-xs text-slate-400">
-          Baseado em{" "}
-          {carregando
-            ? "..."
-            : totalProdutos.toLocaleString("pt-BR")}{" "}
-          unidades em estoque
-        </p>
+      {/* ======================================================
+          MARGEM POR FAIXA
+      ====================================================== */}
+      <div
+        className="
+          relative
+          h-full
+          min-h-0
+          overflow-hidden
+          rounded-[14px]
+          border
+          border-[#233754]
+          bg-[#0d1b2f]
+          px-4
+          py-3
+          shadow-[0_8px_24px_rgba(0,0,0,0.15)]
+        "
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-emerald-500/[0.03] to-transparent" />
+
+        <div className="relative flex h-full min-h-0 flex-col">
+
+          {/* CABEÇALHO */}
+          <div className="flex shrink-0 items-center justify-between">
+            <div>
+              <h2 className="text-[13px] font-bold text-white">
+                Margem por Faixa
+              </h2>
+
+              <p className="mt-0.5 text-[7px] text-slate-600">
+                Distribuição da rentabilidade do estoque
+              </p>
+            </div>
+
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-500/10 bg-emerald-500/10">
+              <TrendingUp
+                size={13}
+                className="text-emerald-400"
+              />
+            </div>
+          </div>
+
+          {/* CONTEÚDO */}
+          <div className="grid min-h-0 flex-1 grid-cols-[100px_1fr] items-center gap-3">
+
+            {/* DONUT */}
+            <div className="relative flex items-center justify-center">
+              <svg
+                width="92"
+                height="92"
+                viewBox="0 0 100 100"
+                className="-rotate-90"
+              >
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={raioMargem}
+                  fill="none"
+                  stroke="#17263a"
+                  strokeWidth="10"
+                />
+
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={raioMargem}
+                  fill="none"
+                  stroke="#10B981"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray={
+                    circunferenciaMargem
+                  }
+                  strokeDashoffset={
+                    offsetMargem
+                  }
+                />
+              </svg>
+
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <p
+                  className={`text-[15px] font-bold ${
+                    percentualAcima30 >
+                    0
+                      ? "text-emerald-400"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {carregando
+                    ? "..."
+                    : `${percentualAcima30.toFixed(
+                        0
+                      )}%`}
+                </p>
+
+                <p className="text-[6px] text-slate-600">
+                  acima de 30%
+                </p>
+              </div>
+            </div>
+
+            {/* BARRAS */}
+            <div className="space-y-2">
+              {faixas.map(
+                (faixa) => (
+                  <div
+                    key={
+                      faixa.label
+                    }
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor:
+                              faixa.cor,
+                          }}
+                        />
+
+                        <span className="truncate text-[7px] text-slate-500">
+                          {
+                            faixa.label
+                          }
+                        </span>
+                      </div>
+
+                      <span
+                        className={`shrink-0 text-[7px] font-bold ${faixa.texto}`}
+                      >
+                        {carregando
+                          ? "..."
+                          : `${faixa.quantidade} (${faixa.percentual.toFixed(
+                              0
+                            )}%)`}
+                      </span>
+                    </div>
+
+                    <div className="h-[4px] overflow-hidden rounded-full bg-[#17263a]">
+                      <div
+                        className={`h-full rounded-full ${faixa.barra}`}
+                        style={{
+                          width: `${Math.min(
+                            faixa.percentual,
+                            100
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* RODAPÉ */}
+          <div className="shrink-0 border-t border-[#233754]/70 pt-1.5">
+            <p className="text-center text-[6px] text-slate-600">
+              Baseado em{" "}
+              {carregando
+                ? "..."
+                : totalProdutos.toLocaleString(
+                    "pt-BR"
+                  )}{" "}
+              unidades em estoque
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

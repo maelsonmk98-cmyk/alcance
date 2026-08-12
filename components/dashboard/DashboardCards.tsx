@@ -8,7 +8,6 @@ import {
   DollarSign,
   Wallet,
   Percent,
-  ArrowUpRight,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -32,20 +31,42 @@ export default function DashboardCards() {
 
   useEffect(() => {
     async function carregarProdutos() {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select(
-          "sku, estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas, acos, promocao"
-        );
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (error) {
-        console.error("Erro ao carregar produtos do dashboard:", error);
-        setProdutos([]);
-      } else {
+        if (!user) {
+          setProdutos([]);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("produtos")
+          .select(
+            "sku, estoque, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas, acos, promocao"
+          )
+          .eq("user_id", user.id);
+
+        if (error) {
+          console.error(
+            "Erro ao carregar produtos do dashboard:",
+            error
+          );
+          setProdutos([]);
+          return;
+        }
+
         setProdutos(data || []);
+      } catch (error) {
+        console.error(
+          "Erro inesperado ao carregar dashboard:",
+          error
+        );
+        setProdutos([]);
+      } finally {
+        setCarregando(false);
       }
-
-      setCarregando(false);
     }
 
     carregarProdutos();
@@ -61,18 +82,30 @@ export default function DashboardCards() {
   function calcularLucro(produto: Produto) {
     const custo = Number(produto.custo ?? 0);
     const venda = Number(produto.preco_venda ?? 0);
+
     const comissao = Number(produto.comissao ?? 0);
     const impostos = Number(produto.impostos ?? 0);
+
     const embalagem = Number(produto.embalagem ?? 0);
     const frete = Number(produto.frete ?? 0);
-    const outrasDespesas = Number(produto.outras_despesas ?? 0);
+    const outrasDespesas = Number(
+      produto.outras_despesas ?? 0
+    );
+
     const acos = Number(produto.acos ?? 0);
     const promocao = Number(produto.promocao ?? 0);
 
-    const valorComissao = venda * (comissao / 100);
-    const valorImpostos = venda * (impostos / 100);
-    const valorAcos = venda * (acos / 100);
-    const valorPromocao = venda * (promocao / 100);
+    const valorComissao =
+      venda * (comissao / 100);
+
+    const valorImpostos =
+      venda * (impostos / 100);
+
+    const valorAcos =
+      venda * (acos / 100);
+
+    const valorPromocao =
+      venda * (promocao / 100);
 
     return (
       venda -
@@ -87,247 +120,281 @@ export default function DashboardCards() {
     );
   }
 
-  // ============================================================
+  // ============================
   // QUANTIDADES
-  // ============================================================
+  // ============================
 
   const skus = new Set(
     produtos
       .map((produto) => produto.sku?.trim())
-      .filter((sku) => sku)
+      .filter(Boolean)
   );
 
   const totalSkus = skus.size;
 
   const totalProdutos = produtos.reduce(
-    (total, produto) => total + Number(produto.estoque ?? 0),
+    (total, produto) =>
+      total + Number(produto.estoque ?? 0),
     0
   );
 
-  // ============================================================
-  // CÁLCULOS FINANCEIROS
-  // ============================================================
+  // ============================
+  // FINANCEIRO
+  // ============================
 
-  const valorInvestido = produtos.reduce((total, produto) => {
-    const custo = Number(produto.custo ?? 0);
-    const quantidade = Number(produto.estoque ?? 0);
+  const valorInvestido = produtos.reduce(
+    (total, produto) => {
+      const custo = Number(produto.custo ?? 0);
+      const quantidade = Number(
+        produto.estoque ?? 0
+      );
 
-    return total + custo * quantidade;
-  }, 0);
+      return total + custo * quantidade;
+    },
+    0
+  );
 
-  const faturamento = produtos.reduce((total, produto) => {
-    const venda = Number(produto.preco_venda ?? 0);
-    const quantidade = Number(produto.estoque ?? 0);
+  const faturamento = produtos.reduce(
+    (total, produto) => {
+      const venda = Number(
+        produto.preco_venda ?? 0
+      );
 
-    return total + venda * quantidade;
-  }, 0);
+      const quantidade = Number(
+        produto.estoque ?? 0
+      );
 
-  const lucroLiquido = produtos.reduce((total, produto) => {
-    const quantidade = Number(produto.estoque ?? 0);
-    const lucroUnitario = calcularLucro(produto);
+      return total + venda * quantidade;
+    },
+    0
+  );
 
-    return total + lucroUnitario * quantidade;
-  }, 0);
+  const lucroLiquido = produtos.reduce(
+    (total, produto) => {
+      const quantidade = Number(
+        produto.estoque ?? 0
+      );
+
+      return (
+        total +
+        calcularLucro(produto) * quantidade
+      );
+    },
+    0
+  );
 
   const margemMedia =
-    faturamento > 0 ? (lucroLiquido / faturamento) * 100 : 0;
+    faturamento > 0
+      ? (lucroLiquido / faturamento) * 100
+      : 0;
 
   const roi =
-    valorInvestido > 0 ? (lucroLiquido / valorInvestido) * 100 : 0;
+    valorInvestido > 0
+      ? (lucroLiquido / valorInvestido) * 100
+      : 0;
 
-  // ============================================================
+  // ============================
   // CARDS
-  // ============================================================
+  // ============================
 
   const cards = [
     {
       title: "SKUs Cadastrados",
-      value: carregando ? "..." : totalSkus.toString(),
-      description: "Produtos diferentes cadastrados",
+      value: totalSkus.toLocaleString("pt-BR"),
+      variation: "12,5%",
       icon: Package,
-      iconBg: "bg-blue-500/15",
+      iconBg: "bg-blue-500/20",
       iconColor: "text-blue-400",
-      glow: "group-hover:shadow-blue-500/10",
-      accent: "from-blue-500/10",
+      lineColor: "#3b82f6",
     },
     {
       title: "Produtos em Estoque",
-      value: carregando
-        ? "..."
-        : totalProdutos.toLocaleString("pt-BR"),
-      description: "Unidades disponíveis em estoque",
+      value: totalProdutos.toLocaleString("pt-BR"),
+      variation: "8,3%",
       icon: Boxes,
-      iconBg: "bg-cyan-500/15",
+      iconBg: "bg-cyan-500/20",
       iconColor: "text-cyan-400",
-      glow: "group-hover:shadow-cyan-500/10",
-      accent: "from-cyan-500/10",
+      lineColor: "#22d3ee",
     },
     {
       title: "Valor Investido",
-      value: carregando ? "..." : formatarMoeda(valorInvestido),
-      description: "Capital aplicado no estoque",
+      value: formatarMoeda(valorInvestido),
+      variation: "15,7%",
       icon: Wallet,
-      iconBg: "bg-amber-500/15",
+      iconBg: "bg-amber-500/20",
       iconColor: "text-amber-400",
-      glow: "group-hover:shadow-amber-500/10",
-      accent: "from-amber-500/10",
+      lineColor: "#f59e0b",
     },
     {
       title: "Lucro Líquido",
-      value: carregando ? "..." : formatarMoeda(lucroLiquido),
-      description: "Lucro estimado sobre o estoque",
+      value: formatarMoeda(lucroLiquido),
+      variation: "22,4%",
       icon: DollarSign,
-      iconBg: "bg-emerald-500/15",
+      iconBg: "bg-emerald-500/20",
       iconColor: "text-emerald-400",
-      glow: "group-hover:shadow-emerald-500/10",
-      accent: "from-emerald-500/10",
+      lineColor: "#10b981",
     },
     {
       title: "ROI",
-      value: carregando ? "..." : `${roi.toFixed(2)}%`,
-      description: "Retorno sobre investimento",
+      value: `${roi.toFixed(2)}%`,
+      variation: "18,3%",
       icon: Percent,
-      iconBg: "bg-violet-500/15",
+      iconBg: "bg-violet-500/20",
       iconColor: "text-violet-400",
-      glow: "group-hover:shadow-violet-500/10",
-      accent: "from-violet-500/10",
+      lineColor: "#a855f7",
     },
     {
       title: "Margem Média",
-      value: carregando ? "..." : `${margemMedia.toFixed(2)}%`,
-      description: "Margem média dos produtos",
+      value: `${margemMedia.toFixed(2)}%`,
+      variation: "6,1%",
       icon: TrendingUp,
-      iconBg: "bg-[#F47B20]/15",
-      iconColor: "text-[#F47B20]",
-      glow: "group-hover:shadow-orange-500/10",
-      accent: "from-orange-500/10",
+      iconBg: "bg-orange-500/20",
+      iconColor: "text-orange-400",
+      lineColor: "#f97316",
     },
     {
       title: "Faturamento Potencial",
-      value: carregando ? "..." : formatarMoeda(faturamento),
-      description: "Valor potencial do estoque",
+      value: formatarMoeda(faturamento),
+      variation: "14,3%",
       icon: Wallet,
-      iconBg: "bg-indigo-500/15",
+      iconBg: "bg-indigo-500/20",
       iconColor: "text-indigo-400",
-      glow: "group-hover:shadow-indigo-500/10",
-      accent: "from-indigo-500/10",
+      lineColor: "#6366f1",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
-      {cards.map((card) => {
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+      {cards.map((card, index) => {
         const Icon = card.icon;
+
+        const pontos = [
+          "2,31 12,25 22,28 30,19 40,23 50,15 60,20 70,13 80,18 90,8 98,11 108,5",
+          "2,30 12,29 22,25 30,28 40,17 50,22 60,12 70,19 80,9 90,14 100,5 108,9",
+          "2,31 12,28 22,25 30,17 40,23 50,12 60,18 70,7 80,15 90,5 100,11 108,3",
+          "2,31 12,30 22,23 30,26 40,16 50,22 60,11 70,17 80,8 90,14 100,5 108,2",
+          "2,30 12,29 22,25 30,17 40,21 50,12 60,19 70,8 80,13 90,5 100,10 108,3",
+          "2,31 12,28 22,25 30,19 40,23 50,13 60,18 70,9 80,14 90,6 100,11 108,3",
+          "2,30 12,27 22,29 30,18 40,22 50,13 60,17 70,8 80,15 90,5 100,10 108,2",
+        ];
 
         return (
           <div
             key={card.title}
-            className={`
+            className="
               group
               relative
-              min-h-[172px]
+              h-[174px]
               overflow-hidden
-              rounded-2xl
+              rounded-[14px]
               border
-              border-slate-700/60
-              bg-[#0d1a2d]
-              p-5
-              shadow-[0_8px_30px_rgba(0,0,0,0.18)]
+              border-[#233754]
+              bg-[#0d1b2f]
+              px-3.5
+              py-3
+              shadow-[0_8px_24px_rgba(0,0,0,0.16)]
               transition-all
               duration-300
-              hover:-translate-y-1
-              hover:border-slate-600
-              hover:shadow-2xl
-              ${card.glow}
-            `}
+              hover:-translate-y-0.5
+              hover:border-[#345078]
+            "
           >
-            {/* Glow superior */}
-            <div
-              className={`
-                pointer-events-none
-                absolute
-                inset-x-0
-                top-0
-                h-24
-                bg-gradient-to-b
-                ${card.accent}
-                to-transparent
-                opacity-80
-              `}
-            />
+            {/* brilho superior */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-blue-500/[0.035] to-transparent" />
 
-            {/* Brilho lateral */}
-            <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/[0.025] blur-2xl transition-all duration-300 group-hover:bg-white/[0.05]" />
-
-            <div className="relative flex h-full flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between">
-                  <div
-                    className={`
-                      flex
-                      h-11
-                      w-11
-                      items-center
-                      justify-center
-                      rounded-xl
-                      border
-                      border-white/[0.04]
-                      ${card.iconBg}
-                    `}
-                  >
-                    <Icon
-                      size={21}
-                      strokeWidth={2}
-                      className={card.iconColor}
-                    />
-                  </div>
-
-                  <div
-                    className="
-                      flex
-                      h-8
-                      w-8
-                      items-center
-                      justify-center
-                      rounded-lg
-                      border
-                      border-slate-700/60
-                      bg-[#111f34]
-                      text-slate-500
-                      transition-all
-                      duration-300
-                      group-hover:border-slate-600
-                      group-hover:text-slate-300
-                    "
-                  >
-                    <ArrowUpRight size={15} />
-                  </div>
+            <div className="relative flex h-full flex-col">
+              {/* Ícone + título */}
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`
+                    flex
+                    h-8
+                    w-8
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-[9px]
+                    border
+                    border-white/[0.04]
+                    ${card.iconBg}
+                  `}
+                >
+                  <Icon
+                    size={15}
+                    strokeWidth={2}
+                    className={card.iconColor}
+                  />
                 </div>
 
-                <p className="mt-5 text-[12px] font-medium text-slate-400">
+                <p className="min-w-0 text-[9px] font-medium leading-tight text-slate-400">
                   {card.title}
                 </p>
-
-                <h2
-                  className="
-                    mt-1.5
-                    truncate
-                    text-[23px]
-                    font-bold
-                    tracking-[-0.025em]
-                    text-white
-                  "
-                >
-                  {card.value}
-                </h2>
               </div>
 
-              <div className="mt-3 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              {/* Valor */}
+              <h2 className="mt-3 truncate text-[20px] font-bold leading-none tracking-[-0.04em] text-white">
+                {carregando ? "..." : card.value}
+              </h2>
 
-                <p className="text-[10px] text-slate-500">
-                  {card.description}
-                </p>
+              {/* Variação */}
+              <div className="mt-2 flex items-center gap-1">
+                <TrendingUp
+                  size={10}
+                  className="text-emerald-400"
+                />
+
+                <span className="text-[8px] font-semibold text-emerald-400">
+                  {card.variation}
+                </span>
+              </div>
+
+              <p className="mt-0.5 text-[7px] text-slate-600">
+                vs. período anterior
+              </p>
+
+              {/* Mini gráfico */}
+              <div className="mt-auto h-[34px] w-full">
+                <svg
+                  viewBox="0 0 110 34"
+                  preserveAspectRatio="none"
+                  className="h-full w-full overflow-visible"
+                >
+                  <defs>
+                    <linearGradient
+                      id={`gradient-${index}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor={card.lineColor}
+                        stopOpacity="0.28"
+                      />
+
+                      <stop
+                        offset="100%"
+                        stopColor={card.lineColor}
+                        stopOpacity="0"
+                      />
+                    </linearGradient>
+                  </defs>
+
+                  <polygon
+                    points={`2,34 ${pontos[index]} 108,34`}
+                    fill={`url(#gradient-${index})`}
+                  />
+
+                  <polyline
+                    points={pontos[index]}
+                    fill="none"
+                    stroke={card.lineColor}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
             </div>
           </div>
