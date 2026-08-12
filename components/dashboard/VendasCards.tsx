@@ -5,26 +5,91 @@ import {
   ShoppingCart,
   DollarSign,
   TrendingUp,
+  TrendingDown,
+  Minus,
   BarChart3,
   Wallet,
-  ArrowUpRight,
+  Percent,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Venda = {
+  data_venda: string;
   quantidade: number | null;
   faturamento: number | null;
   custo_total: number | null;
   lucro: number | null;
 };
 
-export default function VendasCards() {
-  const [vendas, setVendas] = useState<Venda[]>([]);
-  const [carregando, setCarregando] = useState(true);
+type Props = {
+  dataInicio?: string;
+  dataFim?: string;
+};
+
+type Resumo = {
+  quantidade: number;
+  faturamento: number;
+  custo: number;
+  lucro: number;
+  roi: number;
+  margem: number;
+};
+
+function criarDataLocal(
+  valor: string,
+  finalDoDia = false
+) {
+  const [ano, mes, dia] = valor
+    .split("-")
+    .map(Number);
+
+  const data = new Date(
+    ano,
+    mes - 1,
+    dia
+  );
+
+  if (finalDoDia) {
+    data.setHours(23, 59, 59, 999);
+  } else {
+    data.setHours(0, 0, 0, 0);
+  }
+
+  return data;
+}
+
+function formatarDataInput(data: Date) {
+  const ano = data.getFullYear();
+
+  const mes = String(
+    data.getMonth() + 1
+  ).padStart(2, "0");
+
+  const dia = String(
+    data.getDate()
+  ).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+export default function VendasCards({
+  dataInicio,
+  dataFim,
+}: Props) {
+  const [vendasAtuais, setVendasAtuais] =
+    useState<Venda[]>([]);
+
+  const [
+    vendasAnteriores,
+    setVendasAnteriores,
+  ] = useState<Venda[]>([]);
+
+  const [carregando, setCarregando] =
+    useState(true);
 
   useEffect(() => {
     carregarVendas();
-  }, []);
+  }, [dataInicio, dataFim]);
 
   async function carregarVendas() {
     setCarregando(true);
@@ -35,276 +100,678 @@ export default function VendasCards() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setVendas([]);
+        setVendasAtuais([]);
+        setVendasAnteriores([]);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("vendas")
-        .select("quantidade, faturamento, custo_total, lucro")
-        .eq("user_id", user.id);
+      /*
+       * ============================================================
+       * PERÍODO ATUAL
+       * ============================================================
+       */
+
+      const hoje = new Date();
+
+      const fimAtual = dataFim
+        ? criarDataLocal(
+            dataFim,
+            true
+          )
+        : new Date(hoje);
+
+      if (!dataFim) {
+        fimAtual.setHours(
+          23,
+          59,
+          59,
+          999
+        );
+      }
+
+      const inicioAtual = dataInicio
+        ? criarDataLocal(
+            dataInicio
+          )
+        : (() => {
+            const data =
+              new Date(hoje);
+
+            data.setHours(
+              0,
+              0,
+              0,
+              0
+            );
+
+            data.setDate(
+              data.getDate() - 6
+            );
+
+            return data;
+          })();
+
+      /*
+       * Proteção para intervalo invertido
+       */
+
+      if (inicioAtual > fimAtual) {
+        console.error(
+          "A data inicial não pode ser maior que a data final."
+        );
+
+        setVendasAtuais([]);
+        setVendasAnteriores([]);
+        return;
+      }
+
+      /*
+       * ============================================================
+       * QUANTIDADE DE DIAS
+       * ============================================================
+       */
+
+      const inicioSomenteData =
+        new Date(inicioAtual);
+
+      inicioSomenteData.setHours(
+        0,
+        0,
+        0,
+        0
+      );
+
+      const fimSomenteData =
+        new Date(fimAtual);
+
+      fimSomenteData.setHours(
+        0,
+        0,
+        0,
+        0
+      );
+
+      const diferencaMs =
+        fimSomenteData.getTime() -
+        inicioSomenteData.getTime();
+
+      const quantidadeDias =
+        Math.floor(
+          diferencaMs /
+            (1000 * 60 * 60 * 24)
+        ) + 1;
+
+      /*
+       * ============================================================
+       * PERÍODO ANTERIOR
+       *
+       * Exemplo:
+       *
+       * Atual:
+       * 06/08 até 12/08 = 7 dias
+       *
+       * Anterior:
+       * 30/07 até 05/08 = 7 dias
+       * ============================================================
+       */
+
+      const fimAnterior =
+        new Date(inicioAtual);
+
+      fimAnterior.setMilliseconds(-1);
+
+      const inicioAnterior =
+        new Date(inicioAtual);
+
+      inicioAnterior.setDate(
+        inicioAnterior.getDate() -
+          quantidadeDias
+      );
+
+      /*
+       * ============================================================
+       * CONSULTA
+       * ============================================================
+       */
+
+      const { data, error } =
+        await supabase
+          .from("vendas")
+          .select(
+            "data_venda, quantidade, faturamento, custo_total, lucro"
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .gte(
+            "data_venda",
+            inicioAnterior.toISOString()
+          )
+          .lte(
+            "data_venda",
+            fimAtual.toISOString()
+          )
+          .order(
+            "data_venda",
+            {
+              ascending: true,
+            }
+          );
 
       if (error) {
-        console.error("Erro ao carregar vendas:", error);
-        setVendas([]);
+        console.error(
+          "Erro ao carregar vendas:",
+          error
+        );
+
+        setVendasAtuais([]);
+        setVendasAnteriores([]);
         return;
       }
 
-      setVendas(data || []);
+      const todasVendas =
+        (data || []) as Venda[];
+
+      /*
+       * ============================================================
+       * SEPARA PERÍODO ATUAL
+       * ============================================================
+       */
+
+      const atuais =
+        todasVendas.filter(
+          (venda) => {
+            const dataVenda =
+              new Date(
+                venda.data_venda
+              );
+
+            return (
+              dataVenda >=
+                inicioAtual &&
+              dataVenda <=
+                fimAtual
+            );
+          }
+        );
+
+      /*
+       * ============================================================
+       * SEPARA PERÍODO ANTERIOR
+       * ============================================================
+       */
+
+      const anteriores =
+        todasVendas.filter(
+          (venda) => {
+            const dataVenda =
+              new Date(
+                venda.data_venda
+              );
+
+            return (
+              dataVenda >=
+                inicioAnterior &&
+              dataVenda <=
+                fimAnterior
+            );
+          }
+        );
+
+      setVendasAtuais(atuais);
+      setVendasAnteriores(
+        anteriores
+      );
     } catch (error) {
-      console.error("Erro inesperado ao carregar vendas:", error);
-      setVendas([]);
+      console.error(
+        "Erro inesperado ao carregar vendas:",
+        error
+      );
+
+      setVendasAtuais([]);
+      setVendasAnteriores([]);
     } finally {
       setCarregando(false);
     }
   }
 
-  function formatarMoeda(valor: number) {
-    return valor.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+  function formatarMoeda(
+    valor: number
+  ) {
+    return valor.toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
+    );
   }
 
-  const quantidadeVendida = vendas.reduce(
-    (total, venda) => total + Number(venda.quantidade ?? 0),
-    0
-  );
+  /*
+   * ============================================================
+   * RESUMO
+   * ============================================================
+   */
 
-  const faturamento = vendas.reduce(
-    (total, venda) => total + Number(venda.faturamento ?? 0),
-    0
-  );
+  function calcularResumo(
+    vendas: Venda[]
+  ): Resumo {
+    const quantidade =
+      vendas.reduce(
+        (total, venda) =>
+          total +
+          Number(
+            venda.quantidade ?? 0
+          ),
+        0
+      );
 
-  const custoTotal = vendas.reduce(
-    (total, venda) => total + Number(venda.custo_total ?? 0),
-    0
-  );
+    const faturamento =
+      vendas.reduce(
+        (total, venda) =>
+          total +
+          Number(
+            venda.faturamento ?? 0
+          ),
+        0
+      );
 
-  const lucroLiquido = vendas.reduce(
-    (total, venda) => total + Number(venda.lucro ?? 0),
-    0
-  );
+    const custo =
+      vendas.reduce(
+        (total, venda) =>
+          total +
+          Number(
+            venda.custo_total ?? 0
+          ),
+        0
+      );
 
-  const roi =
-    custoTotal > 0
-      ? (lucroLiquido / custoTotal) * 100
-      : 0;
+    const lucro =
+      vendas.reduce(
+        (total, venda) =>
+          total +
+          Number(
+            venda.lucro ?? 0
+          ),
+        0
+      );
 
-  const margem =
-    faturamento > 0
-      ? (lucroLiquido / faturamento) * 100
-      : 0;
+    const roi =
+      custo > 0
+        ? (lucro / custo) * 100
+        : 0;
+
+    const margem =
+      faturamento > 0
+        ? (lucro /
+            faturamento) *
+          100
+        : 0;
+
+    return {
+      quantidade,
+      faturamento,
+      custo,
+      lucro,
+      roi,
+      margem,
+    };
+  }
+
+  const atual =
+    calcularResumo(
+      vendasAtuais
+    );
+
+  const anterior =
+    calcularResumo(
+      vendasAnteriores
+    );
+
+  /*
+   * ============================================================
+   * VARIAÇÃO
+   * ============================================================
+   */
+
+  function calcularVariacao(
+    valorAtual: number,
+    valorAnterior: number
+  ) {
+    if (
+      valorAnterior === 0 &&
+      valorAtual === 0
+    ) {
+      return 0;
+    }
+
+    if (
+      valorAnterior === 0 &&
+      valorAtual !== 0
+    ) {
+      return 100;
+    }
+
+    return (
+      ((valorAtual -
+        valorAnterior) /
+        Math.abs(
+          valorAnterior
+        )) *
+      100
+    );
+  }
+
+  function formatarVariacao(
+    valor: number
+  ) {
+    return `${Math.abs(valor)
+      .toFixed(1)
+      .replace(".", ",")}%`;
+  }
 
   const cards = [
     {
-      title: "Produtos Vendidos",
-      value: quantidadeVendida.toLocaleString("pt-BR"),
-      description: "Unidades vendidas",
+      title:
+        "Produtos Vendidos",
+
+      value:
+        atual.quantidade.toLocaleString(
+          "pt-BR"
+        ),
+
+      variation:
+        calcularVariacao(
+          atual.quantidade,
+          anterior.quantidade
+        ),
+
       icon: ShoppingCart,
-      iconBg: "bg-blue-500/15",
-      iconColor: "text-blue-400",
-      borderHover: "hover:border-blue-500/30",
-      glow: "hover:shadow-blue-500/10",
+
+      iconBg:
+        "bg-blue-500/20",
+
+      iconColor:
+        "text-blue-400",
+
+      cardGlow:
+        "from-blue-500/[0.12]",
     },
+
     {
       title: "Faturamento",
-      value: formatarMoeda(faturamento),
-      description: "Valor total das vendas",
+
+      value: formatarMoeda(
+        atual.faturamento
+      ),
+
+      variation:
+        calcularVariacao(
+          atual.faturamento,
+          anterior.faturamento
+        ),
+
       icon: DollarSign,
-      iconBg: "bg-cyan-500/15",
-      iconColor: "text-cyan-400",
-      borderHover: "hover:border-cyan-500/30",
-      glow: "hover:shadow-cyan-500/10",
-    },
-    {
-      title: "Custo das Vendas",
-      value: formatarMoeda(custoTotal),
-      description: "Custos das vendas realizadas",
-      icon: Wallet,
-      iconBg: "bg-amber-500/15",
-      iconColor: "text-amber-400",
-      borderHover: "hover:border-amber-500/30",
-      glow: "hover:shadow-amber-500/10",
-    },
-    {
-      title: "Lucro Líquido",
-      value: formatarMoeda(lucroLiquido),
-      description: "Resultado das vendas",
-      icon: TrendingUp,
+
       iconBg:
-        lucroLiquido >= 0
-          ? "bg-emerald-500/15"
-          : "bg-red-500/15",
+        "bg-emerald-500/20",
+
       iconColor:
-        lucroLiquido >= 0
-          ? "text-emerald-400"
-          : "text-red-400",
-      borderHover:
-        lucroLiquido >= 0
-          ? "hover:border-emerald-500/30"
-          : "hover:border-red-500/30",
-      glow:
-        lucroLiquido >= 0
-          ? "hover:shadow-emerald-500/10"
-          : "hover:shadow-red-500/10",
+        "text-emerald-400",
+
+      cardGlow:
+        "from-emerald-500/[0.12]",
     },
+
+    {
+      title:
+        "Custo das Vendas",
+
+      value: formatarMoeda(
+        atual.custo
+      ),
+
+      variation:
+        calcularVariacao(
+          atual.custo,
+          anterior.custo
+        ),
+
+      icon: Wallet,
+
+      iconBg:
+        "bg-amber-500/20",
+
+      iconColor:
+        "text-amber-400",
+
+      cardGlow:
+        "from-amber-500/[0.12]",
+    },
+
+    {
+      title:
+        "Lucro Líquido",
+
+      value: formatarMoeda(
+        atual.lucro
+      ),
+
+      variation:
+        calcularVariacao(
+          atual.lucro,
+          anterior.lucro
+        ),
+
+      icon: TrendingUp,
+
+      iconBg:
+        atual.lucro >= 0
+          ? "bg-fuchsia-500/20"
+          : "bg-red-500/20",
+
+      iconColor:
+        atual.lucro >= 0
+          ? "text-fuchsia-400"
+          : "text-red-400",
+
+      cardGlow:
+        atual.lucro >= 0
+          ? "from-fuchsia-500/[0.12]"
+          : "from-red-500/[0.12]",
+    },
+
     {
       title: "ROI",
-      value: `${roi.toFixed(2)}%`,
-      description: "Retorno sobre os custos",
+
+      value: `${atual.roi.toFixed(
+        2
+      )}%`,
+
+      variation:
+        calcularVariacao(
+          atual.roi,
+          anterior.roi
+        ),
+
       icon: BarChart3,
+
       iconBg:
-        roi >= 0
-          ? "bg-violet-500/15"
-          : "bg-red-500/15",
+        atual.roi >= 0
+          ? "bg-emerald-500/20"
+          : "bg-red-500/20",
+
       iconColor:
-        roi >= 0
-          ? "text-violet-400"
+        atual.roi >= 0
+          ? "text-emerald-400"
           : "text-red-400",
-      borderHover:
-        roi >= 0
-          ? "hover:border-violet-500/30"
-          : "hover:border-red-500/30",
-      glow:
-        roi >= 0
-          ? "hover:shadow-violet-500/10"
-          : "hover:shadow-red-500/10",
+
+      cardGlow:
+        atual.roi >= 0
+          ? "from-emerald-500/[0.12]"
+          : "from-red-500/[0.12]",
     },
+
     {
-      title: "Margem Média",
-      value: `${margem.toFixed(2)}%`,
-      description: "Lucro sobre o faturamento",
-      icon: TrendingUp,
+      title:
+        "Margem Média",
+
+      value: `${atual.margem.toFixed(
+        2
+      )}%`,
+
+      variation:
+        calcularVariacao(
+          atual.margem,
+          anterior.margem
+        ),
+
+      icon: Percent,
+
       iconBg:
-        margem >= 0
-          ? "bg-[#F47B20]/15"
-          : "bg-red-500/15",
+        atual.margem >= 0
+          ? "bg-blue-500/20"
+          : "bg-red-500/20",
+
       iconColor:
-        margem >= 0
-          ? "text-[#F47B20]"
+        atual.margem >= 0
+          ? "text-blue-400"
           : "text-red-400",
-      borderHover:
-        margem >= 0
-          ? "hover:border-[#F47B20]/30"
-          : "hover:border-red-500/30",
-      glow:
-        margem >= 0
-          ? "hover:shadow-orange-500/10"
-          : "hover:shadow-red-500/10",
+
+      cardGlow:
+        atual.margem >= 0
+          ? "from-blue-500/[0.12]"
+          : "from-red-500/[0.12]",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
       {cards.map((card) => {
-        const Icon = card.icon;
+        const Icon =
+          card.icon;
+
+        const subiu =
+          card.variation > 0;
+
+        const caiu =
+          card.variation < 0;
 
         return (
           <div
             key={card.title}
-            className={`
+            className="
               group
               relative
-              min-h-[172px]
+              h-[126px]
               overflow-hidden
-              rounded-2xl
+              rounded-[13px]
               border
-              border-slate-700/60
-              bg-[#0d1a2d]
-              p-5
-              shadow-[0_12px_35px_rgba(0,0,0,0.18)]
+              border-[#243750]
+              bg-[#0d1b2f]
+              px-4
+              py-3
+              shadow-[0_8px_24px_rgba(0,0,0,0.16)]
               transition-all
               duration-300
-              hover:-translate-y-1
-              hover:shadow-2xl
-              ${card.borderHover}
-              ${card.glow}
-            `}
+              hover:-translate-y-0.5
+              hover:border-[#345078]
+            "
           >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/[0.025] to-transparent" />
+            {/* Glow */}
+            <div
+              className={`
+                pointer-events-none
+                absolute
+                inset-x-0
+                top-0
+                h-20
+                bg-gradient-to-b
+                ${card.cardGlow}
+                to-transparent
+              `}
+            />
 
-            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-white/[0.02] blur-2xl transition-all duration-300 group-hover:bg-white/[0.05]" />
+            <div className="relative flex h-full flex-col">
 
-            <div className="relative">
-              <div className="flex items-start justify-between">
+              {/* Ícone + título */}
+              <div className="flex items-center gap-2.5">
                 <div
                   className={`
                     flex
-                    h-11
-                    w-11
+                    h-8
+                    w-8
+                    shrink-0
                     items-center
                     justify-center
-                    rounded-xl
+                    rounded-[9px]
                     border
-                    border-white/[0.04]
+                    border-white/[0.03]
                     ${card.iconBg}
                   `}
                 >
                   <Icon
-                    size={20}
+                    size={15}
                     strokeWidth={2}
-                    className={card.iconColor}
+                    className={
+                      card.iconColor
+                    }
                   />
                 </div>
 
-                <div
-                  className="
-                    flex
-                    h-8
-                    w-8
-                    items-center
-                    justify-center
-                    rounded-lg
-                    border
-                    border-slate-700/60
-                    bg-[#111f34]
-                    text-slate-500
-                    transition-all
-                    duration-300
-                    group-hover:border-slate-600
-                    group-hover:text-slate-300
-                  "
-                >
-                  <ArrowUpRight size={15} />
-                </div>
-              </div>
-
-              <div className="mt-5">
-                <p className="text-[12px] font-medium text-slate-400">
+                <p className="truncate text-[10px] font-medium text-slate-400">
                   {card.title}
                 </p>
+              </div>
 
-                <h2
-                  className="
-                    mt-1.5
-                    truncate
-                    text-[23px]
-                    font-bold
-                    tracking-[-0.025em]
-                    text-white
-                  "
-                >
-                  {carregando ? "..." : card.value}
-                </h2>
+              {/* Valor */}
+              <h2 className="mt-2 truncate text-[20px] font-bold leading-none tracking-[-0.04em] text-white">
+                {carregando
+                  ? "..."
+                  : card.value}
+              </h2>
 
-                <div className="mt-2 flex items-center gap-2">
+              {/* Comparação */}
+              <div className="mt-auto">
+                <div className="flex items-center gap-1">
+                  {subiu ? (
+                    <TrendingUp
+                      size={11}
+                      className="text-emerald-400"
+                    />
+                  ) : caiu ? (
+                    <TrendingDown
+                      size={11}
+                      className="text-red-400"
+                    />
+                  ) : (
+                    <Minus
+                      size={11}
+                      className="text-slate-500"
+                    />
+                  )}
+
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      card.title === "Lucro Líquido" && lucroLiquido < 0
-                        ? "bg-red-400"
-                        : card.title === "ROI" && roi < 0
-                        ? "bg-red-400"
-                        : card.title === "Margem Média" && margem < 0
-                        ? "bg-red-400"
-                        : "bg-emerald-400"
+                    className={`text-[9px] font-semibold ${
+                      subiu
+                        ? "text-emerald-400"
+                        : caiu
+                        ? "text-red-400"
+                        : "text-slate-500"
                     }`}
-                  />
-
-                  <p className="text-[10px] text-slate-500">
-                    {card.description}
-                  </p>
+                  >
+                    {carregando
+                      ? "..."
+                      : formatarVariacao(
+                          card.variation
+                        )}
+                  </span>
                 </div>
+
+                <p className="mt-0.5 text-[8px] text-slate-600">
+                  vs. período anterior
+                </p>
               </div>
             </div>
           </div>

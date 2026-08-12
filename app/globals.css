@@ -178,3 +178,37 @@
     font-family: inherit;
   }
 }
+/* ========================================
+   SCROLLBAR - TEMA ESCURO
+======================================== */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #29415f #081321;
+}
+
+/* Chrome, Edge e Safari */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #081321;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #29415f;
+  border-radius: 999px;
+  border: 2px solid #081321;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
+
+/* Cantinho quando existem scroll vertical e horizontal */
+*::-webkit-scrollbar-corner {
+  background: #081321;
+}
