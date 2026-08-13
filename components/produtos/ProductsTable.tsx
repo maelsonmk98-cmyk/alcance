@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -9,6 +9,14 @@ import {
   Trash2,
   Package,
   RefreshCw,
+  Boxes,
+  DollarSign,
+  TrendingUp,
+  BarChart3,
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -16,44 +24,122 @@ type Produto = {
   id: number;
   sku: string | null;
   nome: string | null;
+  numero_original: string | null;
   categoria: string | null;
+
   custo: number | null;
   preco_venda: number | null;
+
   comissao: number | null;
   impostos: number | null;
+
   embalagem: number | null;
   frete: number | null;
   outras_despesas: number | null;
+
   acos: number | null;
   promocao: number | null;
+
+  estoque: number | null;
 };
+
+const ITENS_POR_PAGINA = 8;
 
 export default function ProductsTable() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
+
   const [busca, setBusca] = useState("");
+  const [buscaNumeroOriginal, setBuscaNumeroOriginal] =
+    useState("");
+
+  const [categoriaSelecionada, setCategoriaSelecionada] =
+    useState("Todas");
+
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [excluindo, setExcluindo] = useState<number | null>(null);
+
+  const [excluindo, setExcluindo] = useState<
+    number | null
+  >(null);
+
+  const [paginaAtual, setPaginaAtual] = useState(1);
 
   async function carregarProdutos() {
     setCarregando(true);
     setErro("");
 
-    const { data, error } = await supabase
-      .from("produtos")
-      .select(
-        "id, sku, nome, categoria, custo, preco_venda, comissao, impostos, embalagem, frete, outras_despesas, acos, promocao"
-      )
-      .order("id", { ascending: false });
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (error) {
-      console.error(error);
-      setErro("Erro ao carregar os produtos: " + error.message);
+    if (userError) {
+      console.error(
+        "Erro ao verificar usuário:",
+        userError
+      );
+
+      setErro(
+        "Não foi possível verificar o usuário logado."
+      );
+
       setCarregando(false);
+
       return;
     }
 
-    setProdutos(data || []);
+    if (!user) {
+      setErro("Sua sessão expirou.");
+
+      setCarregando(false);
+
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("produtos")
+      .select(
+        `
+        id,
+        sku,
+        nome,
+        numero_original,
+        categoria,
+        custo,
+        preco_venda,
+        comissao,
+        impostos,
+        embalagem,
+        frete,
+        outras_despesas,
+        acos,
+        promocao,
+        estoque
+        `
+      )
+      .eq("user_id", user.id)
+      .order("id", {
+        ascending: false,
+      });
+
+    if (error) {
+      console.error(
+        "Erro ao carregar produtos:",
+        error
+      );
+
+      setErro(
+        "Erro ao carregar os produtos: " +
+          error.message
+      );
+
+      setCarregando(false);
+
+      return;
+    }
+
+    setProdutos((data || []) as Produto[]);
+
     setCarregando(false);
   }
 
@@ -61,9 +147,22 @@ export default function ProductsTable() {
     carregarProdutos();
   }, []);
 
-  async function excluirProduto(id: number, nome: string | null) {
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [
+    busca,
+    buscaNumeroOriginal,
+    categoriaSelecionada,
+  ]);
+
+  async function excluirProduto(
+    id: number,
+    nome: string | null
+  ) {
     const confirmar = window.confirm(
-      `Tem certeza que deseja excluir o produto "${nome || "sem nome"}"?`
+      `Tem certeza que deseja excluir o produto "${
+        nome || "sem nome"
+      }"?`
     );
 
     if (!confirmar) {
@@ -73,64 +172,135 @@ export default function ProductsTable() {
     setExcluindo(id);
     setErro("");
 
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setErro(
+        "Não foi possível verificar o usuário."
+      );
+
+      setExcluindo(null);
+
+      return;
+    }
+
     const { error } = await supabase
       .from("produtos")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) {
-      console.error(error);
-      setErro("Erro ao excluir o produto: " + error.message);
+      console.error(
+        "Erro ao excluir produto:",
+        error
+      );
+
+      setErro(
+        "Erro ao excluir o produto: " +
+          error.message
+      );
+
       setExcluindo(null);
+
       return;
     }
 
     setProdutos((produtosAtuais) =>
-      produtosAtuais.filter((produto) => produto.id !== id)
+      produtosAtuais.filter(
+        (produto) => produto.id !== id
+      )
     );
 
     setExcluindo(null);
   }
 
-  const produtosFiltrados = produtos.filter((produto) => {
-    const termo = busca.toLowerCase().trim();
-
-    if (!termo) {
-      return true;
-    }
-
-    return (
-      produto.nome?.toLowerCase().includes(termo) ||
-      produto.sku?.toLowerCase().includes(termo)
-    );
-  });
-
-  function formatarMoeda(valor: number | null) {
-    return (valor || 0).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+  function normalizarTexto(
+    texto: string | null | undefined
+  ) {
+    return (texto || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
   }
 
-  function calcularMargem(produto: Produto) {
-    const venda = produto.preco_venda || 0;
-    const custo = produto.custo || 0;
-    const comissao = produto.comissao || 0;
-    const impostos = produto.impostos || 0;
-    const embalagem = produto.embalagem || 0;
-    const frete = produto.frete || 0;
-    const outrasDespesas = produto.outras_despesas || 0;
-    const acos = produto.acos || 0;
-    const promocao = produto.promocao || 0;
+  function normalizarCodigo(
+    texto: string | null | undefined
+  ) {
+    return (texto || "")
+      .toLowerCase()
+      .replace(/\s/g, "")
+      .trim();
+  }
+
+  function formatarMoeda(
+    valor: number | null | undefined
+  ) {
+    return Number(valor || 0).toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
+    );
+  }
+
+  function calcularLucro(produto: Produto) {
+    const venda = Number(
+      produto.preco_venda || 0
+    );
+
+    const custo = Number(
+      produto.custo || 0
+    );
+
+    const comissao = Number(
+      produto.comissao || 0
+    );
+
+    const impostos = Number(
+      produto.impostos || 0
+    );
+
+    const embalagem = Number(
+      produto.embalagem || 0
+    );
+
+    const frete = Number(
+      produto.frete || 0
+    );
+
+    const outrasDespesas = Number(
+      produto.outras_despesas || 0
+    );
+
+    const acos = Number(
+      produto.acos || 0
+    );
+
+    const promocao = Number(
+      produto.promocao || 0
+    );
 
     if (venda <= 0) {
       return 0;
     }
 
-    const valorComissao = venda * (comissao / 100);
-    const valorImpostos = venda * (impostos / 100);
-    const valorAcos = venda * (acos / 100);
-    const valorPromocao = venda * (promocao / 100);
+    const valorComissao =
+      venda * (comissao / 100);
+
+    const valorImpostos =
+      venda * (impostos / 100);
+
+    const valorAcos =
+      venda * (acos / 100);
+
+    const valorPromocao =
+      venda * (promocao / 100);
 
     const lucro =
       venda -
@@ -143,254 +313,938 @@ export default function ProductsTable() {
       valorAcos -
       valorPromocao;
 
+    return lucro;
+  }
+
+  function calcularMargem(produto: Produto) {
+    const venda = Number(
+      produto.preco_venda || 0
+    );
+
+    if (venda <= 0) {
+      return 0;
+    }
+
+    const lucro =
+      calcularLucro(produto);
+
     return (lucro / venda) * 100;
   }
 
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.035)]">
-      {/* Barra superior */}
-      <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-[380px]">
-          <Search
-            size={17}
-            strokeWidth={1.8}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-          />
+  function calcularRoi(produto: Produto) {
+    const custo = Number(
+      produto.custo || 0
+    );
 
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-10 pr-4 text-[12px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#071E49]/20 focus:bg-white focus:ring-4 focus:ring-[#071E49]/[0.04]"
-            placeholder="Pesquisar por SKU ou nome..."
-          />
+    if (custo <= 0) {
+      return 0;
+    }
+
+    const lucro =
+      calcularLucro(produto);
+
+    return (lucro / custo) * 100;
+  }
+
+  /*
+   * =========================================================
+   * CATEGORIAS
+   * =========================================================
+   */
+
+  const categorias = useMemo(() => {
+    const lista = produtos
+      .map(
+        (produto) =>
+          produto.categoria?.trim()
+      )
+      .filter(
+        (
+          categoria
+        ): categoria is string =>
+          Boolean(categoria)
+      );
+
+    return Array.from(
+      new Set(lista)
+    ).sort();
+  }, [produtos]);
+
+  /*
+   * =========================================================
+   * FILTROS
+   * =========================================================
+   */
+
+  const produtosFiltrados = useMemo(() => {
+    const termoBusca =
+      normalizarTexto(busca);
+
+    const termoNumeroOriginal =
+      normalizarCodigo(
+        buscaNumeroOriginal
+      );
+
+    return produtos.filter(
+      (produto) => {
+        /*
+         * Busca principal
+         */
+
+        const correspondeBusca =
+          !termoBusca ||
+          normalizarTexto(
+            produto.nome
+          ).includes(termoBusca) ||
+          normalizarTexto(
+            produto.sku
+          ).includes(termoBusca) ||
+          normalizarTexto(
+            produto.categoria
+          ).includes(termoBusca);
+
+        /*
+         * Categoria
+         */
+
+        const correspondeCategoria =
+          categoriaSelecionada ===
+            "Todas" ||
+          produto.categoria ===
+            categoriaSelecionada;
+
+        /*
+         * Número original
+         *
+         * Aceita um ou vários números
+         * cadastrados no mesmo campo.
+         *
+         * Exemplo:
+         * 5U0122051B, 377121109, 5U0122051C
+         */
+
+        const numeroOriginalProduto =
+          normalizarCodigo(
+            produto.numero_original
+          );
+
+        const correspondeNumeroOriginal =
+          !termoNumeroOriginal ||
+          numeroOriginalProduto.includes(
+            termoNumeroOriginal
+          );
+
+        return (
+          correspondeBusca &&
+          correspondeCategoria &&
+          correspondeNumeroOriginal
+        );
+      }
+    );
+  }, [
+    produtos,
+    busca,
+    buscaNumeroOriginal,
+    categoriaSelecionada,
+  ]);
+
+  /*
+   * =========================================================
+   * INDICADORES
+   * =========================================================
+   */
+
+  const totalSkus = produtos.length;
+
+  const totalUnidades =
+    produtos.reduce(
+      (total, produto) =>
+        total +
+        Number(
+          produto.estoque || 0
+        ),
+      0
+    );
+
+  const valorEstoque =
+    produtos.reduce(
+      (total, produto) => {
+        const estoque = Number(
+          produto.estoque || 0
+        );
+
+        const custo = Number(
+          produto.custo || 0
+        );
+
+        return (
+          total + estoque * custo
+        );
+      },
+      0
+    );
+
+  const margemMedia =
+    produtos.length === 0
+      ? 0
+      : produtos.reduce(
+          (total, produto) =>
+            total +
+            calcularMargem(produto),
+          0
+        ) / produtos.length;
+
+  const roiMedio =
+    produtos.length === 0
+      ? 0
+      : produtos.reduce(
+          (total, produto) =>
+            total +
+            calcularRoi(produto),
+          0
+        ) / produtos.length;
+
+  /*
+   * =========================================================
+   * PAGINAÇÃO
+   * =========================================================
+   */
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(
+      produtosFiltrados.length /
+        ITENS_POR_PAGINA
+    )
+  );
+
+  const paginaSegura = Math.min(
+    paginaAtual,
+    totalPaginas
+  );
+
+  const inicio =
+    (paginaSegura - 1) *
+    ITENS_POR_PAGINA;
+
+  const fim =
+    inicio + ITENS_POR_PAGINA;
+
+  const produtosPagina =
+    produtosFiltrados.slice(
+      inicio,
+      fim
+    );
+
+  function paginaAnterior() {
+    setPaginaAtual((pagina) =>
+      Math.max(1, pagina - 1)
+    );
+  }
+
+  function proximaPagina() {
+    setPaginaAtual((pagina) =>
+      Math.min(
+        totalPaginas,
+        pagina + 1
+      )
+    );
+  }
+
+  function limparFiltros() {
+    setBusca("");
+    setBuscaNumeroOriginal("");
+    setCategoriaSelecionada(
+      "Todas"
+    );
+    setPaginaAtual(1);
+  }
+
+  const possuiFiltro =
+    Boolean(busca) ||
+    Boolean(buscaNumeroOriginal) ||
+    categoriaSelecionada !==
+      "Todas";
+
+  return (
+    <div className="space-y-5">
+      {/* =====================================================
+          CARDS
+      ===================================================== */}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {/* Produtos */}
+
+        <div className="rounded-2xl border border-[#1B3352] bg-[#0B1E35] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 ring-1 ring-blue-400/10">
+              <Boxes size={21} />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium text-slate-400">
+                Total de Produtos
+              </p>
+
+              <p className="mt-1 text-[23px] font-bold text-white">
+                {totalSkus}
+              </p>
+
+              <p className="mt-1 text-[10px] text-slate-500">
+                {totalUnidades} unidades
+                em estoque
+              </p>
+            </div>
+          </div>
         </div>
 
-        <Link
-          href="/produtos/novo"
-          className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#F47B20] px-4 text-[12px] font-semibold text-white shadow-[0_4px_12px_rgba(244,123,32,0.16)] transition-all hover:-translate-y-0.5 hover:bg-[#E96F17] hover:shadow-[0_7px_18px_rgba(244,123,32,0.22)]"
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          Novo Produto
-        </Link>
+        {/* Estoque */}
+
+        <div className="rounded-2xl border border-[#1B3352] bg-[#0B1E35] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-400 ring-1 ring-violet-400/10">
+              <DollarSign
+                size={21}
+              />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium text-slate-400">
+                Valor em Estoque
+              </p>
+
+              <p className="mt-1 text-[23px] font-bold text-white">
+                {formatarMoeda(
+                  valorEstoque
+                )}
+              </p>
+
+              <p className="mt-1 text-[10px] text-slate-500">
+                Baseado no custo atual
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Margem */}
+
+        <div className="rounded-2xl border border-[#1B3352] bg-[#0B1E35] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-400/10">
+              <TrendingUp
+                size={21}
+              />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium text-slate-400">
+                Margem Média
+              </p>
+
+              <p className="mt-1 text-[23px] font-bold text-white">
+                {margemMedia.toFixed(
+                  2
+                )}
+                %
+              </p>
+
+              <p className="mt-1 text-[10px] text-slate-500">
+                Média dos produtos
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ROI */}
+
+        <div className="rounded-2xl border border-[#1B3352] bg-[#0B1E35] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-400 ring-1 ring-orange-400/10">
+              <BarChart3
+                size={21}
+              />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-medium text-slate-400">
+                ROI Médio
+              </p>
+
+              <p className="mt-1 text-[23px] font-bold text-white">
+                {roiMedio.toFixed(2)}
+                %
+              </p>
+
+              <p className="mt-1 text-[10px] text-slate-500">
+                Retorno sobre custo
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Mensagem de erro */}
-      {erro && (
-        <div className="mx-5 mt-5 flex items-center justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[12px] text-red-600">
-          <span>{erro}</span>
+      {/* =====================================================
+          PAINEL PRINCIPAL
+      ===================================================== */}
 
-          <button
-            type="button"
-            onClick={carregarProdutos}
-            className="flex shrink-0 items-center gap-1.5 font-semibold hover:underline"
-          >
-            <RefreshCw size={13} />
-            Tentar novamente
-          </button>
-        </div>
-      )}
+      <div className="overflow-hidden rounded-2xl border border-[#1B3352] bg-[#091B30] shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
+        {/* FILTROS */}
 
-      {carregando ? (
-        <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 p-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#071E49]/[0.06]">
-            <RefreshCw
-              size={18}
-              className="animate-spin text-[#071E49]"
-            />
+        <div className="border-b border-[#17304D] p-5">
+          <div className="grid gap-4 xl:grid-cols-[1fr_1fr_auto_auto_auto]">
+            {/* Busca produto */}
+
+            <div>
+              <p className="mb-2 text-[10px] font-semibold text-slate-400">
+                Buscar por produto ou
+                SKU
+              </p>
+
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+
+                <input
+                  value={busca}
+                  onChange={(e) =>
+                    setBusca(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Ex: Mangueira Gol, 905885..."
+                  className="h-11 w-full rounded-xl border border-[#213A57] bg-[#0D223B] pl-10 pr-4 text-[12px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#315678] focus:ring-4 focus:ring-blue-500/[0.04]"
+                />
+              </div>
+            </div>
+
+            {/* Número original */}
+
+            <div>
+              <p className="mb-2 text-[10px] font-semibold text-slate-400">
+                Buscar por número
+                original
+              </p>
+
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+
+                <input
+                  value={
+                    buscaNumeroOriginal
+                  }
+                  onChange={(e) =>
+                    setBuscaNumeroOriginal(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Ex: 1J0122051AB..."
+                  className="h-11 w-full rounded-xl border border-[#213A57] bg-[#0D223B] pl-10 pr-4 text-[12px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#315678] focus:ring-4 focus:ring-blue-500/[0.04]"
+                />
+              </div>
+            </div>
+
+            {/* Categoria */}
+
+            <div className="self-end">
+              <div className="relative">
+                <SlidersHorizontal
+                  size={14}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <select
+                  value={
+                    categoriaSelecionada
+                  }
+                  onChange={(e) =>
+                    setCategoriaSelecionada(
+                      e.target.value
+                    )
+                  }
+                  className="h-11 min-w-[160px] appearance-none rounded-xl border border-[#213A57] bg-[#0D223B] pl-9 pr-9 text-[11px] font-medium text-slate-300 outline-none"
+                >
+                  <option value="Todas">
+                    Todas categorias
+                  </option>
+
+                  {categorias.map(
+                    (categoria) => (
+                      <option
+                        key={
+                          categoria
+                        }
+                        value={
+                          categoria
+                        }
+                      >
+                        {categoria}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {/* Limpar */}
+
+            {possuiFiltro && (
+              <div className="self-end">
+                <button
+                  type="button"
+                  onClick={
+                    limparFiltros
+                  }
+                  className="flex h-11 items-center gap-2 rounded-xl border border-[#213A57] px-4 text-[11px] font-semibold text-slate-400 transition hover:bg-white/[0.04] hover:text-white"
+                >
+                  <X size={14} />
+
+                  Limpar
+                </button>
+              </div>
+            )}
+
+            {/* Novo produto */}
+
+            <div className="self-end">
+              <Link
+                href="/produtos/novo"
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F47B20] px-5 text-[11px] font-bold text-white shadow-[0_8px_20px_rgba(244,123,32,0.20)] transition hover:-translate-y-0.5 hover:bg-[#FF861F]"
+              >
+                <Plus
+                  size={16}
+                  strokeWidth={2.4}
+                />
+
+                Novo Produto
+              </Link>
+            </div>
           </div>
-
-          <p className="text-[12px] text-slate-400">
-            Carregando produtos...
-          </p>
         </div>
-      ) : (
-        <>
-          {/* Cabeçalho da tabela */}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px]">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50 text-left">
-                  <th className="px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Produto
-                  </th>
 
-                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    SKU
-                  </th>
+        {/* Erro */}
 
-                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Categoria
-                  </th>
-
-                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Custo
-                  </th>
-
-                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Venda
-                  </th>
-
-                  <th className="px-4 py-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Margem
-                  </th>
-
-                  <th className="px-6 py-3.5 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {produtosFiltrados.map((produto) => {
-                  const margem = calcularMargem(produto);
-
-                  return (
-                    <tr
-                      key={produto.id}
-                      className="group border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50/60"
-                    >
-                      {/* Produto */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#071E49]/[0.06]">
-                            <Package
-                              size={16}
-                              strokeWidth={1.8}
-                              className="text-[#071E49]"
-                            />
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="max-w-[250px] truncate text-[12px] font-semibold text-slate-800">
-                              {produto.nome || "Sem nome"}
-                            </p>
-
-                            <p className="mt-0.5 text-[10px] text-slate-400">
-                              Produto cadastrado
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* SKU */}
-                      <td className="px-4 py-4">
-                        <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] font-semibold text-slate-500">
-                          {produto.sku || "-"}
-                        </span>
-                      </td>
-
-                      {/* Categoria */}
-                      <td className="px-4 py-4">
-                        <span className="text-[11px] font-medium text-slate-500">
-                          {produto.categoria || "-"}
-                        </span>
-                      </td>
-
-                      {/* Custo */}
-                      <td className="px-4 py-4 text-[12px] text-slate-500">
-                        {formatarMoeda(produto.custo)}
-                      </td>
-
-                      {/* Venda */}
-                      <td className="px-4 py-4 text-[12px] font-semibold text-slate-700">
-                        {formatarMoeda(produto.preco_venda)}
-                      </td>
-
-                      {/* Margem */}
-                      <td className="px-4 py-4">
-                        <span
-                          className={[
-                            "inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ring-inset",
-                            margem >= 0
-                              ? "bg-emerald-50 text-emerald-600 ring-emerald-500/10"
-                              : "bg-red-50 text-red-600 ring-red-500/10",
-                          ].join(" ")}
-                        >
-                          {margem.toFixed(2)}%
-                        </span>
-                      </td>
-
-                      {/* Ações */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-1">
-                          <Link
-                            href={`/produtos/editar/${produto.id}`}
-                            title="Editar produto"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[#071E49]/[0.06] hover:text-[#071E49]"
-                          >
-                            <Pencil size={14} strokeWidth={1.9} />
-                          </Link>
-
-                          <button
-                            type="button"
-                            title="Excluir produto"
-                            disabled={excluindo === produto.id}
-                            onClick={() =>
-                              excluirProduto(produto.id, produto.nome)
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {excluindo === produto.id ? (
-                              <RefreshCw
-                                size={14}
-                                className="animate-spin"
-                              />
-                            ) : (
-                              <Trash2 size={14} strokeWidth={1.9} />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {produtosFiltrados.length === 0 && (
-                  <tr>
-                    <td colSpan={7}>
-                      <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
-                          <Package
-                            size={20}
-                            className="text-slate-400"
-                          />
-                        </div>
-
-                        <p className="mt-4 text-sm font-semibold text-slate-700">
-                          Nenhum produto encontrado
-                        </p>
-
-                        <p className="mt-1 max-w-[300px] text-[11px] leading-5 text-slate-400">
-                          Tente pesquisar por outro SKU ou nome de produto.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Rodapé */}
-          <div className="flex flex-col gap-2 border-t border-slate-100 px-6 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[10px] text-slate-400">
-              {produtosFiltrados.length}{" "}
-              {produtosFiltrados.length === 1
-                ? "produto encontrado"
-                : "produtos encontrados"}
-            </p>
+        {erro && (
+          <div className="mx-5 mt-5 flex items-center justify-between gap-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[11px] text-red-300">
+            <span>{erro}</span>
 
             <button
               type="button"
-              onClick={carregarProdutos}
-              className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 transition hover:text-[#071E49]"
+              onClick={
+                carregarProdutos
+              }
+              className="flex shrink-0 items-center gap-2 font-semibold"
             >
-              <RefreshCw size={12} />
-              Atualizar lista
+              <RefreshCw
+                size={13}
+              />
+
+              Tentar novamente
             </button>
           </div>
-        </>
-      )}
+        )}
+
+        {/* Loading */}
+
+        {carregando ? (
+          <div className="flex min-h-[380px] flex-col items-center justify-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10">
+              <RefreshCw
+                size={20}
+                className="animate-spin text-blue-400"
+              />
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Carregando produtos...
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* =================================================
+                TABELA
+            ================================================= */}
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1250px]">
+                <thead>
+                  <tr className="border-b border-[#17304D] bg-[#0D223B] text-left">
+                    <th className="px-5 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      Produto
+                    </th>
+
+                    <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      SKU
+                    </th>
+
+                    <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      Nº Original
+                    </th>
+
+                    <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      Categoria
+                    </th>
+
+                    <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      Custo
+                    </th>
+
+                    <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      Venda
+                    </th>
+
+                    <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      Margem
+                    </th>
+
+                    <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      Estoque
+                    </th>
+
+                    <th className="px-5 py-4 text-center text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {produtosPagina.map(
+                    (produto) => {
+                      const margem =
+                        calcularMargem(
+                          produto
+                        );
+
+                      const estoque =
+                        Number(
+                          produto.estoque ||
+                            0
+                        );
+
+                      return (
+                        <tr
+                          key={
+                            produto.id
+                          }
+                          className="group border-b border-[#142D49] transition hover:bg-white/[0.025]"
+                        >
+                          {/* Produto */}
+
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#243D58] bg-[#122943]">
+                                <Package
+                                  size={
+                                    16
+                                  }
+                                  className="text-blue-300"
+                                />
+                              </div>
+
+                              <div className="min-w-0">
+                                <p className="max-w-[260px] truncate text-[11px] font-semibold text-slate-100">
+                                  {produto.nome ||
+                                    "Sem nome"}
+                                </p>
+
+                                <p className="mt-1 text-[9px] text-slate-500">
+                                  Produto
+                                  cadastrado
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* SKU */}
+
+                          <td className="px-4 py-4">
+                            <span className="rounded-lg bg-blue-500/10 px-2.5 py-1.5 font-mono text-[9px] font-bold text-blue-300">
+                              {produto.sku ||
+                                "-"}
+                            </span>
+                          </td>
+
+                          {/* Número Original */}
+
+                          <td className="px-4 py-4">
+                            {produto.numero_original ? (
+                              <div className="max-w-[180px]">
+                                <p
+                                  title={
+                                    produto.numero_original
+                                  }
+                                  className="truncate font-mono text-[9px] font-semibold text-slate-300"
+                                >
+                                  {
+                                    produto.numero_original
+                                  }
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-600">
+                                -
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Categoria */}
+
+                          <td className="px-4 py-4 text-[10px] font-medium text-slate-400">
+                            {produto.categoria ||
+                              "-"}
+                          </td>
+
+                          {/* Custo */}
+
+                          <td className="px-4 py-4 text-[10px] text-slate-400">
+                            {formatarMoeda(
+                              produto.custo
+                            )}
+                          </td>
+
+                          {/* Venda */}
+
+                          <td className="px-4 py-4 text-[11px] font-bold text-white">
+                            {formatarMoeda(
+                              produto.preco_venda
+                            )}
+                          </td>
+
+                          {/* Margem */}
+
+                          <td className="px-4 py-4">
+                            <span
+                              className={[
+                                "inline-flex rounded-lg px-2.5 py-1.5 text-[9px] font-bold",
+
+                                margem >=
+                                15
+                                  ? "bg-emerald-500/10 text-emerald-400"
+                                  : margem >=
+                                      5
+                                    ? "bg-amber-500/10 text-amber-400"
+                                    : margem >=
+                                        0
+                                      ? "bg-orange-500/10 text-orange-400"
+                                      : "bg-red-500/10 text-red-400",
+                              ].join(
+                                " "
+                              )}
+                            >
+                              {margem.toFixed(
+                                2
+                              )}
+                              %
+                            </span>
+                          </td>
+
+                          {/* Estoque */}
+
+                          <td className="px-4 py-4">
+                            <span
+                              className={[
+                                "inline-flex rounded-lg px-2.5 py-1.5 text-[9px] font-semibold",
+
+                                estoque <=
+                                0
+                                  ? "bg-red-500/10 text-red-400"
+                                  : estoque <=
+                                      5
+                                    ? "bg-orange-500/10 text-orange-400"
+                                    : "bg-blue-500/10 text-blue-300",
+                              ].join(
+                                " "
+                              )}
+                            >
+                              {estoque} un.
+                            </span>
+                          </td>
+
+                          {/* Ações */}
+
+                          <td className="px-5 py-4">
+                            <div className="flex items-center justify-center gap-1">
+                              <Link
+                                href={`/produtos/editar/${produto.id}`}
+                                title="Editar produto"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-blue-500/10 hover:text-blue-300"
+                              >
+                                <Pencil
+                                  size={
+                                    14
+                                  }
+                                  strokeWidth={
+                                    1.8
+                                  }
+                                />
+                              </Link>
+
+                              <button
+                                type="button"
+                                title="Excluir produto"
+                                disabled={
+                                  excluindo ===
+                                  produto.id
+                                }
+                                onClick={() =>
+                                  excluirProduto(
+                                    produto.id,
+                                    produto.nome
+                                  )
+                                }
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
+                              >
+                                {excluindo ===
+                                produto.id ? (
+                                  <RefreshCw
+                                    size={
+                                      14
+                                    }
+                                    className="animate-spin"
+                                  />
+                                ) : (
+                                  <Trash2
+                                    size={
+                                      14
+                                    }
+                                    strokeWidth={
+                                      1.8
+                                    }
+                                  />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
+
+                  {produtosPagina.length ===
+                    0 && (
+                    <tr>
+                      <td
+                        colSpan={9}
+                      >
+                        <div className="flex min-h-[300px] flex-col items-center justify-center px-6 text-center">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#122943]">
+                            <Package
+                              size={
+                                23
+                              }
+                              className="text-slate-500"
+                            />
+                          </div>
+
+                          <p className="mt-4 text-sm font-semibold text-slate-300">
+                            Nenhum produto
+                            encontrado
+                          </p>
+
+                          <p className="mt-2 max-w-[330px] text-[10px] leading-5 text-slate-500">
+                            Tente alterar
+                            o SKU, nome,
+                            número original
+                            ou filtros
+                            utilizados.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* =================================================
+                RODAPÉ / PAGINAÇÃO
+            ================================================= */}
+
+            <div className="flex flex-col gap-4 border-t border-[#17304D] px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[10px] text-slate-500">
+                  {produtosFiltrados.length ===
+                  0
+                    ? "Nenhum produto"
+                    : `Mostrando ${
+                        inicio + 1
+                      } a ${Math.min(
+                        fim,
+                        produtosFiltrados.length
+                      )} de ${
+                        produtosFiltrados.length
+                      } produtos`}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={
+                    carregarProdutos
+                  }
+                  className="mr-2 flex h-8 items-center gap-2 rounded-lg px-3 text-[9px] font-semibold text-slate-500 transition hover:bg-white/[0.04] hover:text-white"
+                >
+                  <RefreshCw
+                    size={12}
+                  />
+
+                  Atualizar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    paginaAnterior
+                  }
+                  disabled={
+                    paginaSegura <=
+                    1
+                  }
+                  className="flex h-8 items-center gap-1 rounded-lg border border-[#213A57] px-3 text-[9px] font-semibold text-slate-400 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ChevronLeft
+                    size={13}
+                  />
+
+                  Anterior
+                </button>
+
+                <div className="flex h-8 min-w-8 items-center justify-center rounded-lg bg-[#F47B20] px-2 text-[10px] font-bold text-white">
+                  {paginaSegura}
+                </div>
+
+                <span className="text-[9px] text-slate-600">
+                  de{" "}
+                  {totalPaginas}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={
+                    proximaPagina
+                  }
+                  disabled={
+                    paginaSegura >=
+                    totalPaginas
+                  }
+                  className="flex h-8 items-center gap-1 rounded-lg border border-[#213A57] px-3 text-[9px] font-semibold text-slate-400 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  Próximo
+
+                  <ChevronRight
+                    size={13}
+                  />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

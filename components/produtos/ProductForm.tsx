@@ -13,6 +13,7 @@ export type ProductFormData = {
   nome: string;
   sku: string;
   codigo_barras: string;
+  numero_original: string;
   categoria: string;
   marca: string;
   fornecedor: string;
@@ -50,6 +51,7 @@ const defaultFormData: ProductFormData = {
   nome: "",
   sku: "",
   codigo_barras: "",
+  numero_original: "",
   categoria: "",
   marca: "",
   fornecedor: "",
@@ -82,11 +84,14 @@ export default function ProductForm({
   initialData,
   productId,
 }: ProductFormProps) {
-  const [formData, setFormData] = useState<ProductFormData>(
-    initialData ?? defaultFormData
-  );
+  const [formData, setFormData] =
+    useState<ProductFormData>(
+      initialData ?? defaultFormData
+    );
 
-  const updateField = <K extends keyof ProductFormData>(
+  const updateField = <
+    K extends keyof ProductFormData
+  >(
     field: K,
     value: ProductFormData[K]
   ) => {

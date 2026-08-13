@@ -8,6 +8,9 @@ import {
   Plus,
   TrendingUp,
   Trash2,
+  Wallet,
+  RefreshCw,
+  BarChart3,
 } from "lucide-react";
 
 import MainLayout from "@/components/layout/MainLayout";
@@ -51,15 +54,19 @@ export default function VendasPage() {
 
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("1");
+
   const [precoVenda, setPrecoVenda] = useState("");
   const [custoUnitario, setCustoUnitario] = useState("");
+
   const [comissao, setComissao] = useState("");
   const [impostos, setImpostos] = useState("");
   const [acos, setAcos] = useState("");
   const [promocao, setPromocao] = useState("");
+
   const [frete, setFrete] = useState("");
   const [embalagem, setEmbalagem] = useState("");
   const [outrasDespesas, setOutrasDespesas] = useState("");
+
   const [tarifaFixa, setTarifaFixa] = useState("6.50");
 
   const [dataVenda, setDataVenda] = useState(
@@ -68,9 +75,10 @@ export default function VendasPage() {
 
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [excluindoId, setExcluindoId] = useState<number | null>(
-    null
-  );
+
+  const [excluindoId, setExcluindoId] = useState<
+    number | null
+  >(null);
 
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
@@ -80,7 +88,9 @@ export default function VendasPage() {
   }, []);
 
   function numero(valor: string) {
-    const convertido = Number(valor.replace(",", "."));
+    const convertido = Number(
+      valor.replace(",", ".")
+    );
 
     return Number.isFinite(convertido)
       ? convertido
@@ -89,12 +99,14 @@ export default function VendasPage() {
 
   async function carregarDados() {
     setCarregando(true);
+    setErro("");
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
       setErro("Usuário não autenticado.");
       setCarregando(false);
       return;
@@ -198,13 +210,16 @@ export default function VendasPage() {
     if (!produto) {
       setPrecoVenda("");
       setCustoUnitario("");
+
       setComissao("");
       setImpostos("");
       setAcos("");
       setPromocao("");
+
       setFrete("");
       setEmbalagem("");
       setOutrasDespesas("");
+
       setTarifaFixa("6.50");
 
       return;
@@ -243,7 +258,9 @@ export default function VendasPage() {
     );
 
     setOutrasDespesas(
-      String(produto.outras_despesas ?? 0)
+      String(
+        produto.outras_despesas ?? 0
+      )
     );
 
     setTarifaFixa("6.50");
@@ -270,9 +287,11 @@ export default function VendasPage() {
     );
   }
 
-  // =========================================================
-  // PRÉVIA
-  // =========================================================
+  /*
+   * =========================================================
+   * PRÉVIA
+   * =========================================================
+   */
 
   const qtd = numero(quantidade);
   const preco = numero(precoVenda);
@@ -282,16 +301,20 @@ export default function VendasPage() {
     preco * qtd;
 
   const comissaoValor =
-    preco * (numero(comissao) / 100);
+    preco *
+    (numero(comissao) / 100);
 
   const impostosValor =
-    preco * (numero(impostos) / 100);
+    preco *
+    (numero(impostos) / 100);
 
   const acosValor =
-    preco * (numero(acos) / 100);
+    preco *
+    (numero(acos) / 100);
 
   const promocaoValor =
-    preco * (numero(promocao) / 100);
+    preco *
+    (numero(promocao) / 100);
 
   const custoUnitarioTotal =
     custo +
@@ -328,9 +351,11 @@ export default function VendasPage() {
         100
       : 0;
 
-  // =========================================================
-  // REGISTRAR VENDA
-  // =========================================================
+  /*
+   * =========================================================
+   * REGISTRAR VENDA
+   * =========================================================
+   */
 
   async function registrarVenda() {
     setMensagem("");
@@ -388,101 +413,108 @@ export default function VendasPage() {
 
     setSalvando(true);
 
-    const dataISO = new Date(
-      `${dataVenda}T12:00:00`
-    ).toISOString();
+    try {
+      const dataISO = new Date(
+        `${dataVenda}T12:00:00`
+      ).toISOString();
 
-    const { error } =
-      await supabase.rpc(
-        "registrar_venda",
-        {
-          p_produto_id:
-            produtoSelecionado.id,
+      const { error } =
+        await supabase.rpc(
+          "registrar_venda",
+          {
+            p_produto_id:
+              produtoSelecionado.id,
 
-          p_quantidade:
-            quantidadeNumerica,
+            p_quantidade:
+              quantidadeNumerica,
 
-          p_preco_venda:
-            precoNumerico,
+            p_preco_venda:
+              precoNumerico,
 
-          p_data_venda:
-            dataISO,
+            p_data_venda:
+              dataISO,
 
-          p_custo_unitario:
-            numero(custoUnitario),
+            p_custo_unitario:
+              numero(custoUnitario),
 
-          p_comissao:
-            numero(comissao),
+            p_comissao:
+              numero(comissao),
 
-          p_impostos:
-            numero(impostos),
+            p_impostos:
+              numero(impostos),
 
-          p_acos:
-            numero(acos),
+            p_acos:
+              numero(acos),
 
-          p_promocao:
-            numero(promocao),
+            p_promocao:
+              numero(promocao),
 
-          p_frete:
-            numero(frete),
+            p_frete:
+              numero(frete),
 
-          p_embalagem:
-            numero(embalagem),
+            p_embalagem:
+              numero(embalagem),
 
-          p_outras_despesas:
-            numero(outrasDespesas),
+            p_outras_despesas:
+              numero(outrasDespesas),
 
-          p_tarifa_fixa:
-            numero(tarifaFixa),
-        }
+            p_tarifa_fixa:
+              numero(tarifaFixa),
+          }
+        );
+
+      if (error) {
+        console.error(
+          "Erro ao registrar venda:",
+          error
+        );
+
+        setErro(
+          error.message ||
+            "Não foi possível registrar a venda."
+        );
+
+        return;
+      }
+
+      setMensagem(
+        "Venda registrada com sucesso!"
       );
 
-    if (error) {
-      console.error(
-        "Erro ao registrar venda:",
-        error
+      setProdutoId("");
+      setQuantidade("1");
+
+      setPrecoVenda("");
+      setCustoUnitario("");
+
+      setComissao("");
+      setImpostos("");
+      setAcos("");
+      setPromocao("");
+
+      setFrete("");
+      setEmbalagem("");
+      setOutrasDespesas("");
+
+      setTarifaFixa("6.50");
+
+      setDataVenda(
+        new Date()
+          .toISOString()
+          .split("T")[0]
       );
 
-      setErro(
-        error.message ||
-          "Não foi possível registrar a venda."
-      );
-
+      await carregarDados();
+    } finally {
       setSalvando(false);
-      return;
     }
-
-    setMensagem(
-      "Venda registrada com sucesso!"
-    );
-
-    setProdutoId("");
-    setQuantidade("1");
-    setPrecoVenda("");
-    setCustoUnitario("");
-    setComissao("");
-    setImpostos("");
-    setAcos("");
-    setPromocao("");
-    setFrete("");
-    setEmbalagem("");
-    setOutrasDespesas("");
-    setTarifaFixa("6.50");
-
-    setDataVenda(
-      new Date()
-        .toISOString()
-        .split("T")[0]
-    );
-
-    await carregarDados();
-
-    setSalvando(false);
   }
 
-  // =========================================================
-  // EXCLUIR / ESTORNAR VENDA
-  // =========================================================
+  /*
+   * =========================================================
+   * EXCLUIR / ESTORNAR VENDA
+   * =========================================================
+   */
 
   async function excluirVenda(
     venda: Venda
@@ -516,7 +548,8 @@ export default function VendasPage() {
       await supabase.rpc(
         "excluir_venda",
         {
-          p_venda_id: venda.id,
+          p_venda_id:
+            venda.id,
         }
       );
 
@@ -532,6 +565,7 @@ export default function VendasPage() {
       );
 
       setExcluindoId(null);
+
       return;
     }
 
@@ -544,9 +578,11 @@ export default function VendasPage() {
     setExcluindoId(null);
   }
 
-  // =========================================================
-  // INDICADORES
-  // =========================================================
+  /*
+   * =========================================================
+   * INDICADORES
+   * =========================================================
+   */
 
   const totalVendido =
     vendas.reduce(
@@ -603,22 +639,41 @@ export default function VendasPage() {
       : 0;
 
   const classeInput =
-    "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#071E49] focus:ring-2 focus:ring-[#071E49]/10";
+    "h-11 w-full rounded-xl border border-[#213A57] bg-[#0D223B] px-3 text-[12px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#315678] focus:ring-4 focus:ring-blue-500/[0.04]";
 
   return (
     <MainLayout>
-      <div className="min-h-full bg-slate-50">
-        <div className="mx-auto max-w-[1600px] space-y-7 p-6 lg:p-8">
+      <div className="-m-6 min-h-[calc(100vh-64px)] bg-[#07182B] p-6 lg:-m-8 lg:p-8">
+        <div className="mx-auto max-w-[1600px] space-y-6">
+          {/* =====================================================
+              CABEÇALHO
+          ===================================================== */}
 
-          {/* CABEÇALHO */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+              <div className="flex items-center gap-2 text-[10px] font-semibold">
+                <span className="text-slate-500">
+                  Alcance
+                </span>
+
+                <span className="text-slate-700">
+                  /
+                </span>
+
+                <span className="text-slate-300">
+                  Vendas
+                </span>
+              </div>
+
+              <h1 className="mt-3 text-3xl font-bold tracking-[-0.03em] text-white">
                 Vendas
               </h1>
 
-              <p className="mt-1 text-sm text-slate-500">
-                Registre suas vendas e ajuste os custos de cada operação.
+              <p className="mt-1.5 text-sm text-slate-400">
+                Registre suas vendas,
+                acompanhe os resultados e
+                ajuste os custos de cada
+                operação.
               </p>
             </div>
 
@@ -630,19 +685,25 @@ export default function VendasPage() {
                     "formulario-venda"
                   )
                   ?.scrollIntoView({
-                    behavior:
-                      "smooth",
+                    behavior: "smooth",
                     block: "start",
                   })
               }
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F47B20] px-4 py-2.5 text-sm font-semibold text-white"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F47B20] px-5 text-[11px] font-bold text-white shadow-[0_8px_20px_rgba(244,123,32,0.20)] transition hover:-translate-y-0.5 hover:bg-[#FF861F]"
             >
-              <Plus size={17} />
+              <Plus
+                size={16}
+                strokeWidth={2.4}
+              />
+
               Registrar venda
             </button>
           </div>
 
-          {/* CARDS */}
+          {/* =====================================================
+              CARDS
+          ===================================================== */}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <Card
               titulo="Unidades vendidas"
@@ -654,8 +715,11 @@ export default function VendasPage() {
                     )
               }
               icone={
-                <Package size={19} />
+                <Package
+                  size={20}
+                />
               }
+              variante="blue"
             />
 
             <Card
@@ -669,9 +733,10 @@ export default function VendasPage() {
               }
               icone={
                 <DollarSign
-                  size={19}
+                  size={20}
                 />
               }
+              variante="violet"
             />
 
             <Card
@@ -684,9 +749,14 @@ export default function VendasPage() {
                     )
               }
               icone={
-                <DollarSign
-                  size={19}
+                <Wallet
+                  size={20}
                 />
+              }
+              variante={
+                lucroTotal >= 0
+                  ? "green"
+                  : "red"
               }
             />
 
@@ -701,9 +771,10 @@ export default function VendasPage() {
               }
               icone={
                 <TrendingUp
-                  size={19}
+                  size={20}
                 />
               }
+              variante="green"
             />
 
             <Card
@@ -716,80 +787,92 @@ export default function VendasPage() {
                     )}%`
               }
               icone={
-                <TrendingUp
-                  size={19}
+                <BarChart3
+                  size={20}
                 />
               }
+              variante="orange"
             />
           </div>
 
-          {/* MENSAGEM */}
+          {/* =====================================================
+              MENSAGENS
+          ===================================================== */}
+
           {mensagem && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-semibold text-emerald-300">
               {mensagem}
             </div>
           )}
 
-          {/* ERRO */}
           {erro && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[11px] font-semibold text-red-300">
               {erro}
             </div>
           )}
 
-          {/* FORMULÁRIO */}
+          {/* =====================================================
+              FORMULÁRIO
+          ===================================================== */}
+
           <div
             id="formulario-venda"
-            className="rounded-2xl border border-slate-200 bg-white shadow-sm"
+            className="overflow-hidden rounded-2xl border border-[#1B3352] bg-[#091B30] shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
           >
-            <div className="border-b border-slate-100 px-6 py-5">
-              <h2 className="text-lg font-bold text-slate-900">
-                Registrar venda
-              </h2>
+            {/* Cabeçalho formulário */}
 
-              <p className="mt-1 text-xs text-slate-500">
-                Os dados são preenchidos pelo cadastro do produto, mas você pode editar tudo para esta venda.
-              </p>
+            <div className="border-b border-[#17304D] px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400">
+                  <Plus size={18} />
+                </div>
+
+                <div>
+                  <h2 className="text-[15px] font-bold text-white">
+                    Registrar venda
+                  </h2>
+
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Os dados são preenchidos
+                    pelo cadastro do produto,
+                    mas você pode editar tudo
+                    para esta operação.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-7 p-6">
+            <div className="space-y-8 p-6">
+              {/* =================================================
+                  DADOS DA VENDA
+              ================================================= */}
 
-              {/* DADOS DA VENDA */}
-              <div>
-                <h3 className="mb-4 text-sm font-bold text-[#071E49]">
+              <section>
+                <TituloSecao>
                   Dados da venda
-                </h3>
+                </TituloSecao>
 
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
                   <div className="md:col-span-2">
-                    <label className="mb-2 block text-xs font-semibold text-slate-600">
+                    <label className="mb-2 block text-[10px] font-semibold text-slate-400">
                       Produto / SKU
                     </label>
 
                     <select
-                      value={
-                        produtoId
-                      }
-                      onChange={(
-                        e
-                      ) =>
+                      value={produtoId}
+                      onChange={(e) =>
                         selecionarProduto(
-                          e.target
-                            .value
+                          e.target.value
                         )
                       }
-                      className={
-                        classeInput
-                      }
+                      className={classeInput}
                     >
                       <option value="">
                         Selecione um produto
                       </option>
 
                       {produtos.map(
-                        (
-                          produto
-                        ) => (
+                        (produto) => (
                           <option
                             key={
                               produto.id
@@ -814,23 +897,21 @@ export default function VendasPage() {
 
                   <Campo
                     label="Quantidade"
-                    value={
-                      quantidade
-                    }
+                    value={quantidade}
                     onChange={
                       setQuantidade
                     }
                   />
 
                   <div>
-                    <label className="mb-2 block text-xs font-semibold text-slate-600">
+                    <label className="mb-2 block text-[10px] font-semibold text-slate-400">
                       Data da venda
                     </label>
 
                     <div className="relative">
                       <CalendarDays
-                        size={16}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        size={15}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
                       />
 
                       <input
@@ -838,33 +919,71 @@ export default function VendasPage() {
                         value={
                           dataVenda
                         }
-                        onChange={(
-                          e
-                        ) =>
+                        onChange={(e) =>
                           setDataVenda(
-                            e.target
-                              .value
+                            e.target.value
                           )
                         }
-                        className={`${classeInput} pl-9`}
+                        className={`${classeInput} pl-9 [color-scheme:dark]`}
                       />
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* PREÇO E CUSTOS */}
-              <div>
-                <h3 className="mb-4 text-sm font-bold text-[#071E49]">
+                {produtoSelecionado && (
+                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#1B3352] bg-[#0D223B] px-4 py-3">
+                    <span className="text-[10px] text-slate-500">
+                      Estoque disponível
+                    </span>
+
+                    <span
+                      className={[
+                        "rounded-lg px-2.5 py-1 text-[10px] font-bold",
+                        Number(
+                          produtoSelecionado.estoque ??
+                            0
+                        ) <= 0
+                          ? "bg-red-500/10 text-red-400"
+                          : Number(
+                                produtoSelecionado.estoque ??
+                                  0
+                              ) <= 5
+                            ? "bg-orange-500/10 text-orange-400"
+                            : "bg-blue-500/10 text-blue-300",
+                      ].join(" ")}
+                    >
+                      {produtoSelecionado.estoque ??
+                        0}{" "}
+                      un.
+                    </span>
+
+                    <span className="text-[10px] text-slate-600">
+                      •
+                    </span>
+
+                    <span className="text-[10px] text-slate-500">
+                      {produtoSelecionado.sku ||
+                        "Sem SKU"}
+                    </span>
+                  </div>
+                )}
+              </section>
+
+              <Divisor />
+
+              {/* =================================================
+                  PREÇO E CUSTOS
+              ================================================= */}
+
+              <section>
+                <TituloSecao>
                   Preço e custos
-                </h3>
+                </TituloSecao>
 
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                   <Campo
-                    label="Preço de venda unitário"
-                    value={
-                      precoVenda
-                    }
+                    label="Preço de venda"
+                    value={precoVenda}
                     onChange={
                       setPrecoVenda
                     }
@@ -885,17 +1004,13 @@ export default function VendasPage() {
                   <Campo
                     label="Frete"
                     value={frete}
-                    onChange={
-                      setFrete
-                    }
+                    onChange={setFrete}
                     prefixo="R$"
                   />
 
                   <Campo
                     label="Embalagem"
-                    value={
-                      embalagem
-                    }
+                    value={embalagem}
                     onChange={
                       setEmbalagem
                     }
@@ -915,29 +1030,30 @@ export default function VendasPage() {
 
                   <Campo
                     label="Tarifa fixa"
-                    value={
-                      tarifaFixa
-                    }
+                    value={tarifaFixa}
                     onChange={
                       setTarifaFixa
                     }
                     prefixo="R$"
                   />
                 </div>
-              </div>
+              </section>
 
-              {/* PERCENTUAIS */}
-              <div>
-                <h3 className="mb-4 text-sm font-bold text-[#071E49]">
+              <Divisor />
+
+              {/* =================================================
+                  PERCENTUAIS
+              ================================================= */}
+
+              <section>
+                <TituloSecao>
                   Percentuais da venda
-                </h3>
+                </TituloSecao>
 
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                   <Campo
                     label="Comissão"
-                    value={
-                      comissao
-                    }
+                    value={comissao}
                     onChange={
                       setComissao
                     }
@@ -946,9 +1062,7 @@ export default function VendasPage() {
 
                   <Campo
                     label="Impostos"
-                    value={
-                      impostos
-                    }
+                    value={impostos}
                     onChange={
                       setImpostos
                     }
@@ -958,73 +1072,99 @@ export default function VendasPage() {
                   <Campo
                     label="ACOS"
                     value={acos}
-                    onChange={
-                      setAcos
-                    }
+                    onChange={setAcos}
                     sufixo="%"
                   />
 
                   <Campo
                     label="Promoção"
-                    value={
-                      promocao
-                    }
+                    value={promocao}
                     onChange={
                       setPromocao
                     }
                     sufixo="%"
                   />
                 </div>
-              </div>
+              </section>
 
-              {/* PRÉVIA */}
+              {/* =================================================
+                  PRÉVIA
+              ================================================= */}
+
               {produtoSelecionado && (
-                <div className="rounded-2xl bg-slate-50 p-5">
-                  <h3 className="mb-4 text-sm font-bold text-slate-800">
-                    Prévia da venda
-                  </h3>
+                <>
+                  <Divisor />
 
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-                    <Resumo
-                      titulo="Faturamento"
-                      valor={formatarMoeda(
-                        faturamentoPrevisto
-                      )}
-                    />
+                  <section>
+                    <div className="mb-4 flex items-center justify-between">
+                      <TituloSecao>
+                        Prévia da venda
+                      </TituloSecao>
 
-                    <Resumo
-                      titulo="Custos"
-                      valor={formatarMoeda(
-                        custoVendaPrevisto
-                      )}
-                    />
+                      <span className="rounded-lg bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold text-blue-300">
+                        Atualização em tempo real
+                      </span>
+                    </div>
 
-                    <Resumo
-                      titulo="Lucro"
-                      valor={formatarMoeda(
-                        lucroPrevisto
-                      )}
-                    />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                      <Resumo
+                        titulo="Faturamento"
+                        valor={formatarMoeda(
+                          faturamentoPrevisto
+                        )}
+                      />
 
-                    <Resumo
-                      titulo="Margem"
-                      valor={`${margemPrevista.toFixed(
-                        2
-                      )}%`}
-                    />
+                      <Resumo
+                        titulo="Custos"
+                        valor={formatarMoeda(
+                          custoVendaPrevisto
+                        )}
+                      />
 
-                    <Resumo
-                      titulo="ROI"
-                      valor={`${roiPrevisto.toFixed(
-                        2
-                      )}%`}
-                    />
-                  </div>
-                </div>
+                      <Resumo
+                        titulo="Lucro"
+                        valor={formatarMoeda(
+                          lucroPrevisto
+                        )}
+                        destaque={
+                          lucroPrevisto >= 0
+                            ? "positivo"
+                            : "negativo"
+                        }
+                      />
+
+                      <Resumo
+                        titulo="Margem"
+                        valor={`${margemPrevista.toFixed(
+                          2
+                        )}%`}
+                        destaque={
+                          margemPrevista >= 0
+                            ? "positivo"
+                            : "negativo"
+                        }
+                      />
+
+                      <Resumo
+                        titulo="ROI"
+                        valor={`${roiPrevisto.toFixed(
+                          2
+                        )}%`}
+                        destaque={
+                          roiPrevisto >= 0
+                            ? "positivo"
+                            : "negativo"
+                        }
+                      />
+                    </div>
+                  </section>
+                </>
               )}
             </div>
 
-            <div className="flex justify-end border-t border-slate-100 px-6 py-4">
+            {/* Rodapé formulário */}
+
+            <div className="flex justify-end border-t border-[#17304D] bg-[#0A1D33] px-6 py-4">
               <button
                 type="button"
                 onClick={
@@ -1034,9 +1174,16 @@ export default function VendasPage() {
                   salvando ||
                   carregando
                 }
-                className="inline-flex items-center gap-2 rounded-xl bg-[#071E49] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0a2b67] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#F47B20] px-6 text-[11px] font-bold text-white shadow-[0_8px_20px_rgba(244,123,32,0.18)] transition hover:bg-[#FF861F] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Plus size={17} />
+                {salvando ? (
+                  <RefreshCw
+                    size={15}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Plus size={16} />
+                )}
 
                 {salvando
                   ? "Registrando..."
@@ -1045,71 +1192,95 @@ export default function VendasPage() {
             </div>
           </div>
 
-          {/* HISTÓRICO */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+          {/* =====================================================
+              HISTÓRICO
+          ===================================================== */}
+
+          <div className="overflow-hidden rounded-2xl border border-[#1B3352] bg-[#091B30] shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
+            <div className="flex flex-col gap-4 border-b border-[#17304D] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="text-[15px] font-bold text-white">
                   Vendas recentes
                 </h2>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  Histórico das vendas registradas.
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Histórico das vendas
+                  registradas.
                 </p>
               </div>
 
-              <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
+              <span className="w-fit rounded-lg bg-blue-500/10 px-3 py-1.5 text-[9px] font-bold text-blue-300">
                 {vendas.length} venda(s)
               </span>
             </div>
 
             {carregando ? (
-              <div className="p-12 text-center text-sm text-slate-400">
-                Carregando vendas...
+              <div className="flex min-h-[220px] flex-col items-center justify-center gap-3">
+                <RefreshCw
+                  size={18}
+                  className="animate-spin text-blue-400"
+                />
+
+                <p className="text-[10px] text-slate-500">
+                  Carregando vendas...
+                </p>
               </div>
-            ) : vendas.length ===
-              0 ? (
-              <div className="p-12 text-center text-sm text-slate-400">
-                Nenhuma venda registrada.
+            ) : vendas.length === 0 ? (
+              <div className="flex min-h-[220px] flex-col items-center justify-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#122943]">
+                  <Package
+                    size={19}
+                    className="text-slate-500"
+                  />
+                </div>
+
+                <p className="mt-4 text-[12px] font-semibold text-slate-400">
+                  Nenhuma venda registrada
+                </p>
+
+                <p className="mt-1 text-[10px] text-slate-600">
+                  As vendas aparecerão
+                  aqui após o registro.
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1000px]">
+                <table className="w-full min-w-[1050px]">
                   <thead>
-                    <tr className="border-b bg-slate-50 text-left text-xs text-slate-500">
-                      <th className="px-6 py-3">
+                    <tr className="border-b border-[#17304D] bg-[#0D223B] text-left">
+                      <th className="px-6 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         Data
                       </th>
 
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         SKU
                       </th>
 
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         Produto
                       </th>
 
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         Qtd.
                       </th>
 
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         Faturamento
                       </th>
 
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         Lucro
                       </th>
 
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         Margem
                       </th>
 
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         ROI
                       </th>
 
-                      <th className="px-4 py-3 text-right">
+                      <th className="px-5 py-4 text-right text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         Ação
                       </th>
                     </tr>
@@ -1117,108 +1288,139 @@ export default function VendasPage() {
 
                   <tbody>
                     {vendas.map(
-                      (venda) => (
-                        <tr
-                          key={
-                            venda.id
-                          }
-                          className="border-b border-slate-100 text-sm transition hover:bg-slate-50"
-                        >
-                          <td className="px-6 py-4">
-                            {formatarData(
-                              venda.data_venda
-                            )}
-                          </td>
+                      (venda) => {
+                        const lucro =
+                          Number(
+                            venda.lucro
+                          );
 
-                          <td className="px-4 py-4">
-                            {venda.sku ||
-                              "-"}
-                          </td>
+                        const margem =
+                          Number(
+                            venda.margem
+                          );
 
-                          <td className="max-w-[300px] px-4 py-4">
-                            <p className="truncate">
-                              {venda.nome_produto ||
-                                "-"}
-                            </p>
-                          </td>
+                        const roi =
+                          Number(
+                            venda.roi
+                          );
 
-                          <td className="px-4 py-4">
-                            {
-                              venda.quantidade
+                        return (
+                          <tr
+                            key={
+                              venda.id
                             }
-                          </td>
-
-                          <td className="px-4 py-4 font-semibold">
-                            {formatarMoeda(
-                              venda.faturamento
-                            )}
-                          </td>
-
-                          <td
-                            className={`px-4 py-4 font-semibold ${
-                              Number(
-                                venda.lucro
-                              ) >= 0
-                                ? "text-emerald-600"
-                                : "text-red-600"
-                            }`}
+                            className="border-b border-[#142D49] text-[11px] transition hover:bg-white/[0.025]"
                           >
-                            {formatarMoeda(
-                              venda.lucro
-                            )}
-                          </td>
+                            <td className="px-6 py-4 text-slate-400">
+                              {formatarData(
+                                venda.data_venda
+                              )}
+                            </td>
 
-                          <td className="px-4 py-4">
-                            {Number(
-                              venda.margem
-                            ).toFixed(
-                              2
-                            )}
-                            %
-                          </td>
+                            <td className="px-4 py-4">
+                              <span className="rounded-lg bg-blue-500/10 px-2.5 py-1.5 font-mono text-[9px] font-bold text-blue-300">
+                                {venda.sku ||
+                                  "-"}
+                              </span>
+                            </td>
 
-                          <td className="px-4 py-4">
-                            {Number(
-                              venda.roi
-                            ).toFixed(
-                              2
-                            )}
-                            %
-                          </td>
+                            <td className="max-w-[280px] px-4 py-4">
+                              <p className="truncate font-semibold text-slate-200">
+                                {venda.nome_produto ||
+                                  "-"}
+                              </p>
+                            </td>
 
-                          <td className="px-4 py-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                excluirVenda(
-                                  venda
-                                )
+                            <td className="px-4 py-4 text-slate-400">
+                              {
+                                venda.quantidade
                               }
-                              disabled={
-                                excluindoId ===
-                                venda.id
-                              }
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
-                              title="Excluir venda e devolver ao estoque"
-                            >
-                              <Trash2
-                                size={
-                                  16
+                            </td>
+
+                            <td className="px-4 py-4 font-bold text-white">
+                              {formatarMoeda(
+                                venda.faturamento
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4">
+                              <span
+                                className={[
+                                  "font-bold",
+                                  lucro >= 0
+                                    ? "text-emerald-400"
+                                    : "text-red-400",
+                                ].join(
+                                  " "
+                                )}
+                              >
+                                {formatarMoeda(
+                                  lucro
+                                )}
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-4">
+                              <BadgePercentual
+                                valor={
+                                  margem
                                 }
                               />
-                            </button>
-                          </td>
-                        </tr>
-                      )
+                            </td>
+
+                            <td className="px-4 py-4">
+                              <BadgePercentual
+                                valor={roi}
+                              />
+                            </td>
+
+                            <td className="px-5 py-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  excluirVenda(
+                                    venda
+                                  )
+                                }
+                                disabled={
+                                  excluindoId ===
+                                  venda.id
+                                }
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Excluir venda e devolver ao estoque"
+                              >
+                                {excluindoId ===
+                                venda.id ? (
+                                  <RefreshCw
+                                    size={
+                                      14
+                                    }
+                                    className="animate-spin"
+                                  />
+                                ) : (
+                                  <Trash2
+                                    size={
+                                      14
+                                    }
+                                  />
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      }
                     )}
                   </tbody>
                 </table>
               </div>
             )}
 
-            <div className="border-t border-slate-100 px-6 py-3.5">
-              <p className="text-[11px] text-slate-400">
-                Ao excluir uma venda, a quantidade vendida será devolvida automaticamente ao estoque.
+            <div className="border-t border-[#17304D] px-6 py-3.5">
+              <p className="text-[9px] text-slate-600">
+                Ao excluir uma venda, a
+                quantidade vendida será
+                devolvida automaticamente
+                ao estoque.
               </p>
             </div>
           </div>
@@ -1227,6 +1429,12 @@ export default function VendasPage() {
     </MainLayout>
   );
 }
+
+/*
+ * =========================================================
+ * CAMPO
+ * =========================================================
+ */
 
 function Campo({
   label,
@@ -1237,21 +1445,23 @@ function Campo({
 }: {
   label: string;
   value: string;
+
   onChange: (
     valor: string
   ) => void;
+
   prefixo?: string;
   sufixo?: string;
 }) {
   return (
     <div>
-      <label className="mb-2 block text-xs font-semibold text-slate-600">
+      <label className="mb-2 block text-[10px] font-semibold text-slate-400">
         {label}
       </label>
 
       <div className="relative">
         {prefixo && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-500">
             {prefixo}
           </span>
         )}
@@ -1265,19 +1475,21 @@ function Campo({
               e.target.value
             )
           }
-          className={`h-11 w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none transition focus:border-[#071E49] focus:ring-2 focus:ring-[#071E49]/10 ${
+          className={[
+            "h-11 w-full rounded-xl border border-[#213A57] bg-[#0D223B] text-[12px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#315678] focus:ring-4 focus:ring-blue-500/[0.04]",
+
             prefixo
               ? "pl-9"
-              : "pl-3"
-          } ${
+              : "pl-3",
+
             sufixo
               ? "pr-8"
-              : "pr-3"
-          }`}
+              : "pr-3",
+          ].join(" ")}
         />
 
         {sufixo && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-500">
             {sufixo}
           </span>
         )}
@@ -1286,48 +1498,165 @@ function Campo({
   );
 }
 
+/*
+ * =========================================================
+ * RESUMO
+ * =========================================================
+ */
+
 function Resumo({
   titulo,
   valor,
+  destaque,
 }: {
   titulo: string;
   valor: string;
+
+  destaque?:
+    | "positivo"
+    | "negativo";
 }) {
   return (
-    <div>
-      <p className="text-[11px] font-medium text-slate-400">
+    <div className="rounded-xl border border-[#1B3352] bg-[#0D223B] p-4">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
         {titulo}
       </p>
 
-      <p className="mt-1 text-sm font-bold text-slate-800">
+      <p
+        className={[
+          "mt-2 text-[14px] font-bold",
+
+          destaque ===
+          "positivo"
+            ? "text-emerald-400"
+            : destaque ===
+                "negativo"
+              ? "text-red-400"
+              : "text-white",
+        ].join(" ")}
+      >
         {valor}
       </p>
     </div>
   );
 }
 
+/*
+ * =========================================================
+ * CARD
+ * =========================================================
+ */
+
 function Card({
   titulo,
   valor,
   icone,
+  variante,
 }: {
   titulo: string;
   valor: string;
   icone: React.ReactNode;
+
+  variante:
+    | "blue"
+    | "violet"
+    | "green"
+    | "orange"
+    | "red";
 }) {
+  const estilos = {
+    blue:
+      "bg-blue-500/10 text-blue-400 ring-blue-400/10",
+
+    violet:
+      "bg-violet-500/10 text-violet-400 ring-violet-400/10",
+
+    green:
+      "bg-emerald-500/10 text-emerald-400 ring-emerald-400/10",
+
+    orange:
+      "bg-orange-500/10 text-orange-400 ring-orange-400/10",
+
+    red:
+      "bg-red-500/10 text-red-400 ring-red-400/10",
+  };
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-[#071E49]">
+    <div className="rounded-2xl border border-[#1B3352] bg-[#0B1E35] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+      <div
+        className={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${estilos[variante]}`}
+      >
         {icone}
       </div>
 
-      <p className="mt-4 text-xs font-medium text-slate-500">
+      <p className="mt-4 text-[10px] font-medium text-slate-400">
         {titulo}
       </p>
 
-      <h2 className="mt-1 text-2xl font-bold text-slate-900">
+      <h2 className="mt-1 text-[22px] font-bold tracking-[-0.02em] text-white">
         {valor}
       </h2>
     </div>
+  );
+}
+
+/*
+ * =========================================================
+ * TÍTULO DE SEÇÃO
+ * =========================================================
+ */
+
+function TituloSecao({
+  children,
+}: {
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-300">
+      {children}
+    </h3>
+  );
+}
+
+/*
+ * =========================================================
+ * DIVISOR
+ * =========================================================
+ */
+
+function Divisor() {
+  return (
+    <div className="h-px bg-[#17304D]" />
+  );
+}
+
+/*
+ * =========================================================
+ * BADGE %
+ * =========================================================
+ */
+
+function BadgePercentual({
+  valor,
+}: {
+  valor: number;
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex rounded-lg px-2.5 py-1.5 text-[9px] font-bold",
+
+        valor >= 15
+          ? "bg-emerald-500/10 text-emerald-400"
+          : valor >= 5
+            ? "bg-amber-500/10 text-amber-400"
+            : valor >= 0
+              ? "bg-orange-500/10 text-orange-400"
+              : "bg-red-500/10 text-red-400",
+      ].join(" ")}
+    >
+      {valor.toFixed(2)}%
+    </span>
   );
 }

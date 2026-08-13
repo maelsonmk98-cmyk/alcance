@@ -16,13 +16,11 @@ export default function ProductBasicInfo({
 }: Props) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-8">
-
       <h2 className="text-2xl font-bold mb-6">
         📦 Informações Básicas
       </h2>
 
       <div className="grid grid-cols-2 gap-6">
-
         <div>
           <label className="block mb-2 font-medium">
             Nome do Produto
@@ -30,7 +28,9 @@ export default function ProductBasicInfo({
 
           <input
             value={data.nome}
-            onChange={(e) => updateField("nome", e.target.value)}
+            onChange={(e) =>
+              updateField("nome", e.target.value)
+            }
             className="w-full border rounded-xl p-3"
             placeholder="Digite o nome do produto"
           />
@@ -43,7 +43,9 @@ export default function ProductBasicInfo({
 
           <input
             value={data.sku}
-            onChange={(e) => updateField("sku", e.target.value)}
+            onChange={(e) =>
+              updateField("sku", e.target.value)
+            }
             className="w-full border rounded-xl p-3"
             placeholder="ALC-001"
           />
@@ -57,11 +59,37 @@ export default function ProductBasicInfo({
           <input
             value={data.codigo_barras}
             onChange={(e) =>
-              updateField("codigo_barras", e.target.value)
+              updateField(
+                "codigo_barras",
+                e.target.value
+              )
             }
             className="w-full border rounded-xl p-3"
             placeholder="7890000000000"
           />
+        </div>
+
+        <div>
+          <label className="block mb-2 font-medium">
+            Número Original
+          </label>
+
+          <input
+            value={data.numero_original}
+            onChange={(e) =>
+              updateField(
+                "numero_original",
+                e.target.value
+              )
+            }
+            className="w-full border rounded-xl p-3"
+            placeholder="Ex.: 5U0122051B"
+          />
+
+          <p className="mt-1 text-xs text-gray-400">
+            Você pode informar mais de um código
+            separado por vírgula.
+          </p>
         </div>
 
         <div>
@@ -72,10 +100,13 @@ export default function ProductBasicInfo({
           <input
             value={data.categoria}
             onChange={(e) =>
-              updateField("categoria", e.target.value)
+              updateField(
+                "categoria",
+                e.target.value
+              )
             }
             className="w-full border rounded-xl p-3"
-            placeholder="Eletrônicos"
+            placeholder="Autopeças"
           />
         </div>
 
@@ -90,7 +121,7 @@ export default function ProductBasicInfo({
               updateField("marca", e.target.value)
             }
             className="w-full border rounded-xl p-3"
-            placeholder="Ex.: Logitech"
+            placeholder="Ex.: Chevrolet"
           />
         </div>
 
@@ -102,13 +133,15 @@ export default function ProductBasicInfo({
           <input
             value={data.fornecedor}
             onChange={(e) =>
-              updateField("fornecedor", e.target.value)
+              updateField(
+                "fornecedor",
+                e.target.value
+              )
             }
             className="w-full border rounded-xl p-3"
             placeholder="Nome do fornecedor"
           />
         </div>
-
       </div>
     </div>
   );

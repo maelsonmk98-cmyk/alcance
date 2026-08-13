@@ -36,7 +36,6 @@ export default function ProductActions({
     setSalvando(true);
 
     try {
-      // Verifica o usuário atualmente logado
       const {
         data: { user },
         error: userError,
@@ -44,48 +43,115 @@ export default function ProductActions({
 
       if (userError) {
         console.error(userError);
-        setMensagem("Erro ao verificar o usuário logado.");
+
+        setMensagem(
+          "Erro ao verificar o usuário logado."
+        );
+
         return;
       }
 
       if (!user) {
-        setMensagem("Sua sessão expirou. Faça login novamente.");
+        setMensagem(
+          "Sua sessão expirou. Faça login novamente."
+        );
+
         router.push("/login");
+
         return;
       }
 
       const produto = {
-        nome: data.nome,
-        sku: data.sku,
-        codigo_barras: data.codigo_barras || null,
-        categoria: data.categoria || null,
-        marca: data.marca || null,
-        fornecedor: data.fornecedor || null,
+        nome: data.nome.trim(),
+        sku: data.sku.trim(),
 
-        custo: data.custo_produto,
-        frete: data.frete,
-        embalagem: data.embalagem,
-        comissao: data.comissao,
-        impostos: data.impostos,
-        acos: data.acos,
-        promocao: data.promocao,
-        outras_despesas: data.outras_despesas,
+        codigo_barras:
+          data.codigo_barras.trim() || null,
 
-        marketplace: data.marketplace,
-        tipo_anuncio: data.tipo_anuncio,
-        preco_venda: data.preco_venda,
-        fulfillment: data.fulfillment,
+        numero_original:
+          data.numero_original.trim() || null,
 
-        estoque: data.estoque,
-        peso: data.peso,
-        altura: data.altura,
-        largura: data.largura,
-        comprimento: data.comprimento,
+        categoria:
+          data.categoria.trim() || null,
 
-        descricao: data.descricao || null,
-        observacoes: data.observacoes || null,
+        marca:
+          data.marca.trim() || null,
 
-        // Usuário dono do produto
+        fornecedor:
+          data.fornecedor.trim() || null,
+
+        custo: Number(
+          data.custo_produto || 0
+        ),
+
+        frete: Number(
+          data.frete || 0
+        ),
+
+        embalagem: Number(
+          data.embalagem || 0
+        ),
+
+        comissao: Number(
+          data.comissao || 0
+        ),
+
+        impostos: Number(
+          data.impostos || 0
+        ),
+
+        acos: Number(
+          data.acos || 0
+        ),
+
+        promocao: Number(
+          data.promocao || 0
+        ),
+
+        outras_despesas: Number(
+          data.outras_despesas || 0
+        ),
+
+        marketplace:
+          data.marketplace || null,
+
+        tipo_anuncio:
+          data.tipo_anuncio || null,
+
+        preco_venda: Number(
+          data.preco_venda || 0
+        ),
+
+        fulfillment: Boolean(
+          data.fulfillment
+        ),
+
+        estoque: Number(
+          data.estoque || 0
+        ),
+
+        peso: Number(
+          data.peso || 0
+        ),
+
+        altura: Number(
+          data.altura || 0
+        ),
+
+        largura: Number(
+          data.largura || 0
+        ),
+
+        comprimento: Number(
+          data.comprimento || 0
+        ),
+
+        descricao:
+          data.descricao.trim() || null,
+
+        observacoes:
+          data.observacoes.trim() || null,
+
         user_id: user.id,
       };
 
@@ -108,10 +174,14 @@ export default function ProductActions({
       }
 
       if (error) {
-        console.error(error);
+        console.error(
+          "Erro ao salvar produto:",
+          error
+        );
 
         setMensagem(
-          "Erro ao salvar o produto: " + error.message
+          "Erro ao salvar o produto: " +
+            error.message
         );
 
         return;
@@ -140,7 +210,6 @@ export default function ProductActions({
 
   return (
     <div className="mt-8 flex flex-col items-end gap-4">
-
       {mensagem && (
         <div className="w-full text-center font-medium">
           {mensagem}
@@ -148,7 +217,6 @@ export default function ProductActions({
       )}
 
       <div className="flex justify-end gap-4">
-
         <a
           href="/produtos"
           className="rounded-xl border px-6 py-3 transition hover:bg-gray-100"
@@ -168,7 +236,6 @@ export default function ProductActions({
               ? "Atualizar Produto"
               : "Salvar Produto"}
         </button>
-
       </div>
     </div>
   );
