@@ -14,19 +14,11 @@ export default function Header() {
   const router = useRouter();
 
   async function sair() {
-    const { error } =
-      await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
 
     if (error) {
-      console.error(
-        "Erro ao sair:",
-        error
-      );
-
-      alert(
-        "Não foi possível sair da conta."
-      );
-
+      console.error("Erro ao sair:", error);
+      alert("Não foi possível sair da conta.");
       return;
     }
 
@@ -38,18 +30,23 @@ export default function Header() {
     <header
       className="
         flex
-        h-[70px]
+        h-[64px]
         w-full
         shrink-0
         items-center
         border-b
         border-[#1d2d44]
         bg-[#081321]
-        px-4
+        px-3
+        pl-[72px]
+        sm:px-4
+        sm:pl-[76px]
+        md:h-[70px]
         md:px-6
+        md:pl-6
       "
     >
-      {/* BUSCA */}
+      {/* BUSCA DESKTOP */}
       <div className="hidden w-full max-w-[520px] items-center md:flex">
         <div
           className="
@@ -96,9 +93,19 @@ export default function Header() {
         </div>
       </div>
 
-      {/* AÇÕES */}
-      <div className="ml-auto flex items-center gap-2.5">
+      {/* TÍTULO MOBILE */}
+      <div className="min-w-0 md:hidden">
+        <p className="truncate text-[14px] font-semibold text-white">
+          Alcance
+        </p>
 
+        <p className="truncate text-[9px] text-slate-500">
+          Gestão de e-commerce
+        </p>
+      </div>
+
+      {/* AÇÕES */}
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
         {/* NOTIFICAÇÕES */}
         <button
           type="button"
@@ -106,8 +113,8 @@ export default function Header() {
           className="
             relative
             flex
-            h-10
-            w-10
+            h-9
+            w-9
             items-center
             justify-center
             rounded-xl
@@ -115,6 +122,8 @@ export default function Header() {
             transition
             hover:bg-[#102039]
             hover:text-slate-300
+            md:h-10
+            md:w-10
           "
         >
           <Bell
@@ -125,40 +134,44 @@ export default function Header() {
           <span
             className="
               absolute
-              right-2.5
-              top-2
+              right-2
+              top-1.5
               h-1.5
               w-1.5
               rounded-full
               bg-[#F47B20]
               ring-2
               ring-[#081321]
+              md:right-2.5
+              md:top-2
             "
           />
         </button>
 
-        {/* SEPARADOR */}
-        <div className="mx-1 hidden h-7 w-px bg-[#1d2d44] sm:block" />
+        {/* SEPARADOR DESKTOP */}
+        <div className="mx-1 hidden h-7 w-px bg-[#1d2d44] md:block" />
 
         {/* NOVO PRODUTO */}
         <Link
           href="/produtos/novo"
+          aria-label="Novo produto"
           className="
             flex
-            h-10
+            h-9
+            w-9
             items-center
-            gap-2
+            justify-center
             rounded-xl
             bg-[#F47B20]
-            px-4
-            text-[11px]
-            font-semibold
             text-white
             shadow-[0_6px_18px_rgba(244,123,32,0.18)]
             transition-all
             duration-200
-            hover:-translate-y-0.5
             hover:bg-[#E96F17]
+            sm:h-10
+            sm:w-auto
+            sm:px-3
+            md:px-4
           "
         >
           <Plus
@@ -166,7 +179,7 @@ export default function Header() {
             strokeWidth={2.5}
           />
 
-          <span className="hidden sm:inline">
+          <span className="ml-2 hidden text-[11px] font-semibold sm:inline">
             Novo Produto
           </span>
         </Link>
@@ -175,23 +188,26 @@ export default function Header() {
         <button
           type="button"
           onClick={sair}
+          aria-label="Sair"
           className="
             flex
-            h-10
+            h-9
+            w-9
             items-center
-            gap-2
+            justify-center
             rounded-xl
             border
             border-[#263951]
             bg-[#0d1b2f]
-            px-4
-            text-[11px]
-            font-semibold
             text-slate-300
             transition
             hover:border-red-500/30
             hover:bg-red-500/10
             hover:text-red-400
+            sm:h-10
+            sm:w-auto
+            sm:px-3
+            md:px-4
           "
         >
           <LogOut
@@ -199,7 +215,7 @@ export default function Header() {
             strokeWidth={2}
           />
 
-          <span className="hidden sm:inline">
+          <span className="ml-2 hidden text-[11px] font-semibold sm:inline">
             Sair
           </span>
         </button>
