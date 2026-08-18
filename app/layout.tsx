@@ -10,6 +10,22 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Alcance",
   description: "Análise de produtos e margens",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      {
+        url: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+    apple: "/icon-192.png",
+  },
 };
 
 export default function RootLayout({
