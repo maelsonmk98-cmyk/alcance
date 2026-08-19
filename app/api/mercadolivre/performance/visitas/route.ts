@@ -10,6 +10,21 @@ type ItemSearchResponse = {
   };
 };
 
+type VisitaSerie = {
+  date?: string;
+  total?: number;
+};
+
+type VisitaApiItem = {
+  item_id?: string;
+  total?: number;
+  date_from?: string;
+  date_to?: string;
+  last?: number;
+  unit?: string;
+  results?: VisitaSerie[];
+};
+
 type VisitaItem = {
   item_id: string;
   total: number;
@@ -99,7 +114,7 @@ export async function GET(
 
     /*
      * ============================================================
-     * 2. TOKEN VÁLIDO
+     * 2. TOKEN VÁLIDO DO MERCADO LIVRE
      * ============================================================
      */
 
@@ -251,25 +266,40 @@ export async function GET(
 
     /*
      * ============================================================
-     * 5. CONSULTAR VISITAS POR ITEM
+     * 5. CONSULTAR VISITAS EM LOTES
      * ============================================================
      *
-     * Fazemos individualmente para evitar
-     * enviar URLs enormes e facilitar
-     * diagnóstico caso algum MLB falhe.
+     * O endpoint aceita múltiplos IDs.
+     *
+     * Isso reduz drasticamente o número de chamadas
+     * quando o vendedor possui muitos anúncios.
      */
 
     const visitas: VisitaItem[] =
       [];
 
-    for (
-      const itemId of ids
-    ) {
-      try {
-        const visitasUrl =
-          `https://api.mercadolibre.com/items/${itemId}/visits/time_window` +
-          `?last=${dias}&unit=day`;
+    const tamanhoLote = 20;
 
+    for (
+      let i = 0;
+      i < ids.length;
+      i += tamanhoLote
+    ) {
+      const lote =
+        ids.slice(
+          i,
+          i + tamanhoLote
+        );
+
+      const visitasUrl =
+        `https://api.mercadolibre.com/items/visits/time_window` +
+        `?ids=${encodeURIComponent(
+          lote.join(",")
+        )}` +
+        `&last=${dias}` +
+        `&unit=day`;
+
+      try {
         const response =
           await fetch(
             visitasUrl,
@@ -284,31 +314,84 @@ export async function GET(
             }
           );
 
-        const data =
+        const raw =
           await response.json();
 
         if (!response.ok) {
           console.error(
-            `Erro ao consultar visitas do item ${itemId}:`,
-            data
+            "Erro ao consultar lote de visitas:",
+            raw
           );
 
           continue;
         }
 
-        visitas.push({
-          item_id:
-            itemId,
+        const itens:
+          VisitaApiItem[] =
+          Array.isArray(raw)
+            ? raw
+            : [raw];
 
-          total:
-            Number(
-              data.total ??
-                0
-            ),
-        });
+        itens.forEach(
+          (item) => {
+            const itemId =
+              String(
+                item.item_id ??
+                  ""
+              );
+
+            if (!itemId) {
+              return;
+            }
+
+            /*
+             * Algumas respostas retornam total.
+             *
+             * Caso total não esteja disponível,
+             * somamos a série temporal de results.
+             */
+
+            const totalDireto =
+              Number(
+                item.total
+              );
+
+            const totalSerie =
+              Array.isArray(
+                item.results
+              )
+                ? item.results.reduce(
+                    (
+                      soma,
+                      periodo
+                    ) =>
+                      soma +
+                      Number(
+                        periodo.total ??
+                          0
+                      ),
+                    0
+                  )
+                : 0;
+
+            const total =
+              Number.isFinite(
+                totalDireto
+              )
+                ? totalDireto
+                : totalSerie;
+
+            visitas.push({
+              item_id:
+                itemId,
+
+              total,
+            });
+          }
+        );
       } catch (error) {
         console.error(
-          `Erro ao consultar visitas do item ${itemId}:`,
+          "Erro ao consultar visitas do lote:",
           error
         );
       }
@@ -316,12 +399,49 @@ export async function GET(
 
     /*
      * ============================================================
-     * 6. RESUMO
+     * 6. GARANTIR TODOS OS ANÚNCIOS
+     * ============================================================
+     *
+     * Se algum anúncio não vier na resposta,
+     * adicionamos com zero.
+     */
+
+    const mapaVisitas =
+      new Map<
+        string,
+        number
+      >();
+
+    visitas.forEach(
+      (item) => {
+        mapaVisitas.set(
+          item.item_id,
+          item.total
+        );
+      }
+    );
+
+    const visitasCompletas =
+      ids.map(
+        (itemId) => ({
+          item_id:
+            itemId,
+
+          total:
+            mapaVisitas.get(
+              itemId
+            ) ?? 0,
+        })
+      );
+
+    /*
+     * ============================================================
+     * 7. RESUMO
      * ============================================================
      */
 
     const totalVisitas =
-      visitas.reduce(
+      visitasCompletas.reduce(
         (
           total,
           item
@@ -332,7 +452,7 @@ export async function GET(
       );
 
     const maisVisitados =
-      [...visitas]
+      [...visitasCompletas]
         .sort(
           (
             a,
@@ -348,7 +468,7 @@ export async function GET(
 
     /*
      * ============================================================
-     * 7. RETORNO
+     * 8. RETORNO
      * ============================================================
      */
 
@@ -374,7 +494,8 @@ export async function GET(
             : 0,
       },
 
-      visitas,
+      visitas:
+        visitasCompletas,
 
       rankings: {
         mais_visitados:
