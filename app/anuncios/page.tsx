@@ -209,6 +209,41 @@ type ProdutosAdsResponse = {
   error?: string;
 };
 
+type VisitaPerformance = {
+  item_id: string;
+  total: number;
+};
+
+type ResumoVisitasPerformance = {
+  total_anuncios: number;
+  total_visitas: number;
+  media_visitas_anuncio: number;
+  anuncios_com_visitas: number;
+  anuncios_sem_visitas: number;
+};
+
+type VisitasPerformanceResponse = {
+  conectado?: boolean;
+  periodo?: {
+    dias: number;
+    tipo?: string;
+  };
+  resumo?: ResumoVisitasPerformance;
+  visitas?: VisitaPerformance[];
+  rankings?: {
+    mais_visitados?: VisitaPerformance[];
+  };
+  error?: string;
+};
+
+const RESUMO_VISITAS_INICIAL: ResumoVisitasPerformance = {
+  total_anuncios: 0,
+  total_visitas: 0,
+  media_visitas_anuncio: 0,
+  anuncios_com_visitas: 0,
+  anuncios_sem_visitas: 0,
+};
+
 type FiltroStatus = "todos" | "active" | "paused" | "closed";
 type Aba = "visao-geral" | "anuncios" | "vendas" | "ads" | "performance";
 
@@ -286,6 +321,13 @@ function AnunciosContent() {
   const [resumoAds, setResumoAds] = useState<ResumoAds>(RESUMO_ADS_INICIAL);
   const [campanhasAds, setCampanhasAds] = useState<CampanhaAds[]>([]);
   const [produtosAds, setProdutosAds] = useState<ProdutoAds[]>([]);
+
+  const [carregandoPerformance, setCarregandoPerformance] = useState(false);
+  const [erroPerformance, setErroPerformance] = useState("");
+  const [resumoVisitas, setResumoVisitas] = useState<ResumoVisitasPerformance>(
+    RESUMO_VISITAS_INICIAL
+  );
+  const [visitasPerformance, setVisitasPerformance] = useState<VisitaPerformance[]>([]);
 
   async function carregarAnuncios(mostrarAtualizacao = false) {
     if (mostrarAtualizacao) setAtualizando(true);
@@ -405,6 +447,43 @@ function AnunciosContent() {
     }
   }
 
+  async function carregarPerformance() {
+    setCarregandoPerformance(true);
+    setErroPerformance("");
+
+    try {
+      const response = await fetch(
+        `/api/mercadolivre/performance/visitas?dias=${periodo}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const data: VisitasPerformanceResponse = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Não foi possível carregar a performance dos anúncios."
+        );
+      }
+
+      setResumoVisitas(data.resumo ?? RESUMO_VISITAS_INICIAL);
+      setVisitasPerformance(
+        Array.isArray(data.visitas) ? data.visitas : []
+      );
+    } catch (error) {
+      console.error("Erro ao carregar Performance Mercado Livre:", error);
+      setErroPerformance(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar a performance dos anúncios."
+      );
+    } finally {
+      setCarregandoPerformance(false);
+    }
+  }
+
   useEffect(() => {
     carregarAnuncios();
   }, []);
@@ -415,6 +494,10 @@ function AnunciosContent() {
 
   useEffect(() => {
     if (conectado && abaAtiva === "ads") carregarAds();
+  }, [conectado, abaAtiva, periodo]);
+
+  useEffect(() => {
+    if (conectado && abaAtiva === "performance") carregarPerformance();
   }, [conectado, abaAtiva, periodo]);
 
   const anunciosFiltrados = useMemo(() => {
@@ -567,6 +650,7 @@ function AnunciosContent() {
                   carregarAnuncios(true);
                   if (abaAtiva === "vendas") carregarVendas();
                   if (abaAtiva === "ads") carregarAds();
+                  if (abaAtiva === "performance") carregarPerformance();
                 }}
                 disabled={atualizando}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#1D3A5C] bg-[#0A1D34] px-4 text-[10px] font-bold text-slate-300 transition hover:border-blue-500/40 hover:text-white disabled:opacity-60"
@@ -817,11 +901,13 @@ function AnunciosContent() {
             )}
 
             {abaAtiva === "performance" && (
-              <ModuloEmConstrucao
-                icon={<TrendingUp size={25} />}
-                titulo="Performance"
-                descricao="Aqui vamos cruzar anúncios, vendas, Ads e os custos cadastrados no Alcance."
-                cards={["Faturamento", "Lucro", "Margem", "ROI", "ACOS"]}
+              <PerformanceAnuncios
+                carregando={carregandoPerformance}
+                erro={erroPerformance}
+                resumo={resumoVisitas}
+                visitas={visitasPerformance}
+                anuncios={anuncios}
+                atualizar={carregarPerformance}
               />
             )}
           </>
@@ -1235,6 +1321,314 @@ function MercadoAds({
             </tbody>
           </table>
           {produtos.length === 0 && <EmptyState titulo="Nenhum produto encontrado" descricao="A API não retornou produtos de Product Ads." />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PerformanceAnuncios({
+  carregando,
+  erro,
+  resumo,
+  visitas,
+  anuncios,
+  atualizar,
+}: {
+  carregando: boolean;
+  erro: string;
+  resumo: ResumoVisitasPerformance;
+  visitas: VisitaPerformance[];
+  anuncios: Anuncio[];
+  atualizar: () => void;
+}) {
+  const linhas = useMemo(() => {
+    const visitasPorMlb = new Map<string, number>();
+
+    visitas.forEach((item) => {
+      visitasPorMlb.set(item.item_id, Number(item.total ?? 0));
+    });
+
+    return anuncios
+      .map((anuncio) => {
+        const visualizacoes = visitasPorMlb.get(anuncio.id) ?? 0;
+        const vendas = Number(anuncio.vendidos ?? 0);
+        const conversao =
+          visualizacoes > 0 ? (vendas / visualizacoes) * 100 : 0;
+
+        return {
+          ...anuncio,
+          visualizacoes,
+          vendas,
+          conversao,
+        };
+      })
+      .sort((a, b) => b.visualizacoes - a.visualizacoes);
+  }, [anuncios, visitas]);
+
+  const totalVendidos = useMemo(
+    () => linhas.reduce((total, item) => total + item.vendas, 0),
+    [linhas]
+  );
+
+  const conversaoGeral =
+    resumo.total_visitas > 0
+      ? (totalVendidos / resumo.total_visitas) * 100
+      : 0;
+
+  const maisVisitados = linhas.filter((item) => item.visualizacoes > 0).slice(0, 10);
+
+  const melhoresConversoes = [...linhas]
+    .filter((item) => item.visualizacoes >= 10 && item.vendas > 0)
+    .sort((a, b) => b.conversao - a.conversao)
+    .slice(0, 10);
+
+  const muitaVisitaPoucaVenda = [...linhas]
+    .filter((item) => item.visualizacoes >= 20 && item.conversao < 1)
+    .sort((a, b) => b.visualizacoes - a.visualizacoes)
+    .slice(0, 10);
+
+  if (carregando) {
+    return <LoaderCard texto="Carregando performance dos anúncios..." />;
+  }
+
+  return (
+    <div className="space-y-5">
+      <SectionHeader
+        titulo="Performance dos anúncios"
+        descricao="Visualizações históricas, vendas acumuladas e conversão por anúncio do Mercado Livre."
+        botao="Atualizar performance"
+        onClick={atualizar}
+      />
+
+      {erro && (
+        <AvisoErro
+          titulo="Erro ao carregar performance"
+          descricao={erro}
+        />
+      )}
+
+      <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.06] px-4 py-3">
+        <p className="text-[10px] font-bold text-blue-300">
+          As visualizações exibidas abaixo são históricas/acumuladas.
+        </p>
+        <p className="mt-1 text-[9px] leading-4 text-blue-300/60">
+          O endpoint por período do Mercado Livre retornou zero mesmo para anúncios com histórico. Por isso o Alcance usa a fonte histórica validada da API para não exibir dados incorretos.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiCard
+          titulo="Visualizações"
+          valor={formatarNumero(resumo.total_visitas)}
+          detalhe="Visitas históricas dos anúncios"
+          icon={<Eye size={17} />}
+        />
+        <KpiCard
+          titulo="Anúncios com visitas"
+          valor={formatarNumero(resumo.anuncios_com_visitas)}
+          detalhe={`${formatarNumero(resumo.anuncios_sem_visitas)} sem visitas`}
+          icon={<Megaphone size={17} />}
+        />
+        <KpiCard
+          titulo="Média por anúncio"
+          valor={formatarNumero(resumo.media_visitas_anuncio)}
+          detalhe="Visualizações médias por anúncio"
+          icon={<BarChart3 size={17} />}
+        />
+        <KpiCard
+          titulo="Unidades vendidas"
+          valor={formatarNumero(totalVendidos)}
+          detalhe="Quantidade acumulada nos anúncios"
+          icon={<ShoppingBag size={17} />}
+        />
+        <KpiCard
+          titulo="Conversão geral"
+          valor={formatarPercentual(conversaoGeral)}
+          detalhe="Unidades vendidas ÷ visualizações"
+          icon={<TrendingUp size={17} />}
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Painel
+          titulo="Mais visualizados"
+          subtitulo="Anúncios com maior volume de visitas."
+          icon={<Eye size={16} />}
+        >
+          <div className="space-y-2">
+            {maisVisitados.map((item, index) => (
+              <div
+                key={`visitas-${item.id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-[#16304D] bg-[#07182B] px-3 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[9px] font-semibold text-slate-300">
+                    {index + 1}. {item.titulo}
+                  </p>
+                  <p className="mt-1 text-[8px] text-slate-600">
+                    {item.sku || "Sem SKU"} • {item.id}
+                  </p>
+                </div>
+                <p className="shrink-0 text-[11px] font-bold text-white">
+                  {formatarNumero(item.visualizacoes)}
+                </p>
+              </div>
+            ))}
+            {maisVisitados.length === 0 && (
+              <p className="text-[9px] text-slate-600">Sem visitas disponíveis.</p>
+            )}
+          </div>
+        </Painel>
+
+        <Painel
+          titulo="Melhor conversão"
+          subtitulo="Mínimo de 10 visualizações para evitar distorções."
+          icon={<TrendingUp size={16} />}
+        >
+          <div className="space-y-2">
+            {melhoresConversoes.map((item, index) => (
+              <div
+                key={`conversao-${item.id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-[#16304D] bg-[#07182B] px-3 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[9px] font-semibold text-slate-300">
+                    {index + 1}. {item.titulo}
+                  </p>
+                  <p className="mt-1 text-[8px] text-slate-600">
+                    {formatarNumero(item.vendas)} vendas • {formatarNumero(item.visualizacoes)} visitas
+                  </p>
+                </div>
+                <p className="shrink-0 text-[11px] font-bold text-emerald-400">
+                  {formatarPercentual(item.conversao)}
+                </p>
+              </div>
+            ))}
+            {melhoresConversoes.length === 0 && (
+              <p className="text-[9px] text-slate-600">Sem dados suficientes.</p>
+            )}
+          </div>
+        </Painel>
+
+        <Painel
+          titulo="Atenção"
+          subtitulo="Muitas visitas e conversão abaixo de 1%."
+          icon={<AlertCircle size={16} />}
+        >
+          <div className="space-y-2">
+            {muitaVisitaPoucaVenda.map((item) => (
+              <div
+                key={`atencao-${item.id}`}
+                className="rounded-xl border border-amber-500/10 bg-amber-500/[0.04] px-3 py-3"
+              >
+                <p className="truncate text-[9px] font-semibold text-slate-300">
+                  {item.titulo}
+                </p>
+                <p className="mt-1 text-[8px] text-amber-300/70">
+                  {formatarNumero(item.visualizacoes)} visitas • {formatarNumero(item.vendas)} vendas • {formatarPercentual(item.conversao)} conversão
+                </p>
+              </div>
+            ))}
+            {muitaVisitaPoucaVenda.length === 0 && (
+              <p className="text-[9px] text-slate-600">Nenhum anúncio crítico encontrado.</p>
+            )}
+          </div>
+        </Painel>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[#17304D] bg-[#081A2E]">
+        <div className="border-b border-[#142B45] p-5">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={16} className="text-[#F47B20]" />
+            <h3 className="text-[13px] font-bold text-white">
+              Performance por anúncio
+            </h3>
+          </div>
+          <p className="mt-1 text-[9px] text-slate-600">
+            {linhas.length} anúncios analisados
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1250px]">
+            <thead>
+              <tr className="border-b border-[#142B45] bg-[#07182B]">
+                <Th>Produto</Th>
+                <Th>SKU</Th>
+                <Th>Visualizações</Th>
+                <Th>Vendidos</Th>
+                <Th>Conversão</Th>
+                <Th>Preço</Th>
+                <Th>Estoque</Th>
+                <Th>Tipo</Th>
+                <Th>Status</Th>
+                <Th align="right">Ação</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {linhas.map((item) => (
+                <tr
+                  key={`performance-${item.id}`}
+                  className="border-b border-[#122941] transition last:border-0 hover:bg-[#0B2038]"
+                >
+                  <td className="px-5 py-4">
+                    <div className="max-w-[360px]">
+                      <p className="truncate text-[10px] font-semibold text-slate-200">
+                        {item.titulo}
+                      </p>
+                      <p className="mt-1 text-[8px] text-slate-600">{item.id}</p>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-[9px] font-semibold text-slate-400">
+                    {item.sku || "—"}
+                  </td>
+                  <td className="px-5 py-4 text-[10px] font-bold text-white">
+                    {formatarNumero(item.visualizacoes)}
+                  </td>
+                  <td className="px-5 py-4 text-[9px] font-semibold text-slate-300">
+                    {formatarNumero(item.vendas)}
+                  </td>
+                  <td className="px-5 py-4 text-[9px] font-bold text-emerald-400">
+                    {formatarPercentual(item.conversao)}
+                  </td>
+                  <td className="px-5 py-4 text-[9px] font-semibold text-slate-300">
+                    {formatarMoeda(item.preco)}
+                  </td>
+                  <td className="px-5 py-4 text-[9px] font-semibold text-slate-300">
+                    {formatarNumero(item.estoque)}
+                  </td>
+                  <td className="px-5 py-4">
+                    <TipoBadge tipo={item.tipo_anuncio} />
+                  </td>
+                  <td className="px-5 py-4">
+                    <StatusBadge status={item.status} />
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    {item.permalink ? (
+                      <a
+                        href={item.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#1C3959] bg-[#091D34] px-3 text-[9px] font-bold text-slate-300 transition hover:border-blue-500/40 hover:text-white"
+                      >
+                        Abrir <ExternalLink size={11} />
+                      </a>
+                    ) : (
+                      <span className="text-slate-700">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {linhas.length === 0 && (
+            <EmptyState
+              titulo="Nenhum anúncio encontrado"
+              descricao="Não há dados de performance disponíveis."
+            />
+          )}
         </div>
       </div>
     </div>
