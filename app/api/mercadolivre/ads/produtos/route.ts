@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getMercadoLivreAccessToken } from "@/lib/mercadolivre/getAccessToken";
 
 export async function GET(
   request: NextRequest
@@ -24,39 +25,41 @@ export async function GET(
   }
 
   try {
-    const cookieStore = await cookies();
+    const cookieStore =
+      await cookies();
 
-    const supabase = createServerClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
+    const supabase =
+      createServerClient(
+        supabaseUrl,
+        supabaseAnonKey,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll();
+            },
 
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(
-                ({
-                  name,
-                  value,
-                  options,
-                }) => {
-                  cookieStore.set(
+            setAll(cookiesToSet) {
+              try {
+                cookiesToSet.forEach(
+                  ({
                     name,
                     value,
-                    options
-                  );
-                }
-              );
-            } catch {
-              // Contexto sem escrita de cookies.
-            }
+                    options,
+                  }) => {
+                    cookieStore.set(
+                      name,
+                      value,
+                      options
+                    );
+                  }
+                );
+              } catch {
+                // Contexto sem escrita de cookies.
+              }
+            },
           },
-        },
-      }
-    );
+        }
+      );
 
     /*
      * ============================================================
@@ -67,7 +70,8 @@ export async function GET(
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser();
+    } =
+      await supabase.auth.getUser();
 
     if (userError || !user) {
       return NextResponse.json(
@@ -83,32 +87,40 @@ export async function GET(
 
     /*
      * ============================================================
-     * 2. CONTA MERCADO LIVRE
+     * 2. TOKEN VÁLIDO DO MERCADO LIVRE
      * ============================================================
      */
 
-    const {
-      data: conta,
-      error: contaError,
-    } = await supabase
-      .from("mercadolivre_contas")
-      .select(
-        `
-        ml_user_id,
-        access_token
-        `
-      )
-      .eq("user_id", user.id)
-      .single();
+    let accessToken: string;
 
-    if (contaError || !conta) {
+    try {
+      const token =
+        await getMercadoLivreAccessToken(
+          supabase,
+          user.id
+        );
+
+      accessToken =
+        token.accessToken;
+    } catch (tokenError) {
+      console.error(
+        "Erro ao obter token Mercado Livre para produtos Ads:",
+        tokenError
+      );
+
+      const mensagem =
+        tokenError instanceof Error
+          ? tokenError.message
+          : "Erro ao acessar conta Mercado Livre.";
+
       return NextResponse.json(
         {
-          error:
-            "Nenhuma conta do Mercado Livre conectada.",
+          mercado_ads: false,
+          conectado: false,
+          error: mensagem,
         },
         {
-          status: 404,
+          status: 401,
         }
       );
     }
@@ -119,24 +131,33 @@ export async function GET(
      * ============================================================
      */
 
-    const diasParam = Number(
-      request.nextUrl.searchParams.get(
-        "dias"
-      ) ?? 30
-    );
+    const diasParam =
+      Number(
+        request.nextUrl.searchParams.get(
+          "dias"
+        ) ?? 30
+      );
 
     const dias =
-      Number.isFinite(diasParam) &&
+      Number.isFinite(
+        diasParam
+      ) &&
       diasParam > 0
-        ? Math.min(diasParam, 90)
+        ? Math.min(
+            diasParam,
+            90
+          )
         : 30;
 
-    const fim = new Date();
+    const fim =
+      new Date();
 
-    const inicio = new Date();
+    const inicio =
+      new Date();
 
     inicio.setDate(
-      inicio.getDate() - dias
+      inicio.getDate() -
+        dias
     );
 
     const dateFrom =
@@ -163,19 +184,28 @@ export async function GET(
 
           headers: {
             Authorization:
-              `Bearer ${conta.access_token}`,
+              `Bearer ${accessToken}`,
 
-            "Api-Version": "1",
+            "Api-Version":
+              "1",
           },
 
-          cache: "no-store",
+          cache:
+            "no-store",
         }
       );
 
     const advertiserData =
       await advertiserResponse.json();
 
-    if (!advertiserResponse.ok) {
+    if (
+      !advertiserResponse.ok
+    ) {
+      console.error(
+        "Erro ao consultar advertiser para produtos Ads:",
+        advertiserData
+      );
+
       return NextResponse.json(
         {
           error:
@@ -198,10 +228,13 @@ export async function GET(
         ? advertiserData.advertisers
         : [];
 
-    if (advertisers.length === 0) {
+    if (
+      advertisers.length === 0
+    ) {
       return NextResponse.json(
         {
-          mercado_ads: false,
+          mercado_ads:
+            false,
 
           error:
             "Nenhum advertiser Product Ads encontrado.",
@@ -217,8 +250,10 @@ export async function GET(
         (item: {
           site_id?: string;
         }) =>
-          item.site_id === "MLB"
-      ) ?? advertisers[0];
+          item.site_id ===
+          "MLB"
+      ) ??
+      advertisers[0];
 
     const advertiserId =
       advertiser.advertiser_id;
@@ -244,21 +279,17 @@ export async function GET(
      * 5. BUSCAR PRODUTOS / ADS
      * ============================================================
      *
-     * IMPORTANTE:
-     *
-     * Removemos aggregation_type=TOTAL
-     * porque a API retornou:
-     *
-     * AggregationTypeItemAdGroupEnum.TOTAL
-     *
-     * indicando que TOTAL não é um valor
-     * aceito nesse endpoint.
+     * aggregation_type=TOTAL continua removido,
+     * pois esse endpoint não aceita esse valor.
      */
 
     const params =
       new URLSearchParams({
-        limit: "50",
-        offset: "0",
+        limit:
+          "50",
+
+        offset:
+          "0",
 
         date_from:
           dateFrom,
@@ -291,16 +322,19 @@ export async function GET(
       await fetch(
         url,
         {
-          method: "GET",
+          method:
+            "GET",
 
           headers: {
             Authorization:
-              `Bearer ${conta.access_token}`,
+              `Bearer ${accessToken}`,
 
-            "Api-Version": "1",
+            "Api-Version":
+              "1",
           },
 
-          cache: "no-store",
+          cache:
+            "no-store",
         }
       );
 
@@ -321,7 +355,8 @@ export async function GET(
 
       return NextResponse.json(
         {
-          mercado_ads: true,
+          mercado_ads:
+            true,
 
           advertiser_id:
             advertiserId,
@@ -365,19 +400,26 @@ export async function GET(
      */
 
     const resultados =
-      Array.isArray(data.results)
+      Array.isArray(
+        data.results
+      )
         ? data.results
         : [];
 
-    let investimentoTotal = 0;
+    let investimentoTotal =
+      0;
 
-    let receitaTotal = 0;
+    let receitaTotal =
+      0;
 
-    let cliquesTotal = 0;
+    let cliquesTotal =
+      0;
 
-    let impressoesTotal = 0;
+    let impressoesTotal =
+      0;
 
-    let vendasTotal = 0;
+    let vendasTotal =
+      0;
 
     /*
      * ============================================================
@@ -394,12 +436,14 @@ export async function GET(
 
           const investimento =
             Number(
-              metrics.cost ?? 0
+              metrics.cost ??
+                0
             );
 
           const cliques =
             Number(
-              metrics.clicks ?? 0
+              metrics.clicks ??
+                0
             );
 
           const impressoes =
@@ -425,9 +469,13 @@ export async function GET(
             metrics.total_amount;
 
           const receita =
-            totalAmount !== undefined &&
-            totalAmount !== null
-              ? Number(totalAmount)
+            totalAmount !==
+              undefined &&
+            totalAmount !==
+              null
+              ? Number(
+                  totalAmount
+                )
               : receitaDireta +
                 receitaIndireta;
 
@@ -508,17 +556,15 @@ export async function GET(
               : 0;
 
           /*
-           * Alguns retornos podem usar
-           * estruturas diferentes.
-           *
-           * Por isso mantemos fallback
-           * para vários campos.
+           * Fallback para estruturas
+           * diferentes retornadas pela API.
            */
 
           const itemId =
             item.item_id ??
             item.item?.id ??
-            item.item?.item_id ??
+            item.item
+              ?.item_id ??
             item.entity_id ??
             null;
 
@@ -592,11 +638,8 @@ export async function GET(
             roas,
 
             /*
-             * Temporário para diagnóstico.
-             *
-             * Depois podemos remover
-             * quando soubermos exatamente
-             * a estrutura retornada.
+             * Mantido temporariamente
+             * para diagnóstico.
              */
 
             raw:
@@ -646,7 +689,8 @@ export async function GET(
      */
 
     return NextResponse.json({
-      mercado_ads: true,
+      mercado_ads:
+        true,
 
       advertiser_id:
         advertiserId,

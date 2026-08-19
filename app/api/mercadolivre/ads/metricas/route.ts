@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getMercadoLivreAccessToken } from "@/lib/mercadolivre/getAccessToken";
 
 export async function GET(request: NextRequest) {
   const supabaseUrl =
@@ -81,32 +82,49 @@ export async function GET(request: NextRequest) {
 
     /*
      * ============================================================
-     * 2. CONTA MERCADO LIVRE
+     * 2. TOKEN VÁLIDO DO MERCADO LIVRE
      * ============================================================
+     *
+     * A função central verifica a validade do token.
+     *
+     * Se necessário:
+     *
+     * - usa refresh_token
+     * - gera novo access_token
+     * - salva os novos tokens
+     * - retorna um token válido
      */
 
-    const {
-      data: conta,
-      error: contaError,
-    } = await supabase
-      .from("mercadolivre_contas")
-      .select(
-        `
-        ml_user_id,
-        access_token
-        `
-      )
-      .eq("user_id", user.id)
-      .single();
+    let accessToken: string;
 
-    if (contaError || !conta) {
+    try {
+      const token =
+        await getMercadoLivreAccessToken(
+          supabase,
+          user.id
+        );
+
+      accessToken =
+        token.accessToken;
+    } catch (tokenError) {
+      console.error(
+        "Erro ao obter token Mercado Livre para Ads:",
+        tokenError
+      );
+
+      const mensagem =
+        tokenError instanceof Error
+          ? tokenError.message
+          : "Erro ao acessar conta Mercado Livre.";
+
       return NextResponse.json(
         {
-          error:
-            "Nenhuma conta do Mercado Livre conectada.",
+          mercado_ads: false,
+          conectado: false,
+          error: mensagem,
         },
         {
-          status: 404,
+          status: 401,
         }
       );
     }
@@ -161,7 +179,7 @@ export async function GET(request: NextRequest) {
 
           headers: {
             Authorization:
-              `Bearer ${conta.access_token}`,
+              `Bearer ${accessToken}`,
 
             "Api-Version": "1",
           },
@@ -174,8 +192,15 @@ export async function GET(request: NextRequest) {
       await advertiserResponse.json();
 
     if (!advertiserResponse.ok) {
+      console.error(
+        "Erro ao consultar advertiser Mercado Ads:",
+        advertiserData
+      );
+
       return NextResponse.json(
         {
+          mercado_ads: false,
+
           error:
             "Não foi possível consultar o advertiser.",
 
@@ -241,11 +266,6 @@ export async function GET(request: NextRequest) {
      * ============================================================
      * 5. MÉTRICAS DAS CAMPANHAS
      * ============================================================
-     *
-     * Usamos o mesmo endpoint de campanhas
-     * que já funcionou no seu projeto.
-     *
-     * Agora solicitamos métricas no período.
      */
 
     const params =
@@ -287,7 +307,7 @@ export async function GET(request: NextRequest) {
 
           headers: {
             Authorization:
-              `Bearer ${conta.access_token}`,
+              `Bearer ${accessToken}`,
 
             "Api-Version": "1",
           },
@@ -317,8 +337,10 @@ export async function GET(request: NextRequest) {
 
           periodo: {
             dias,
+
             date_from:
               dateFrom,
+
             date_to:
               dateTo,
           },
@@ -354,10 +376,6 @@ export async function GET(request: NextRequest) {
      * ============================================================
      * 7. RESUMO
      * ============================================================
-     *
-     * Nesta primeira versão calculamos
-     * somente campos que realmente vierem
-     * da API.
      */
 
     let investimento = 0;
@@ -579,8 +597,10 @@ export async function GET(request: NextRequest) {
 
       periodo: {
         dias,
+
         date_from:
           dateFrom,
+
         date_to:
           dateTo,
       },
@@ -612,10 +632,6 @@ export async function GET(request: NextRequest) {
 
       campanhas,
 
-      /*
-       * Temporariamente mantemos
-       * estes dados para diagnóstico.
-       */
       diagnostico: {
         paging:
           data.paging ??

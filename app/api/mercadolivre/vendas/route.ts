@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getMercadoLivreAccessToken } from "@/lib/mercadolivre/getAccessToken";
 
 type OrderItem = {
   quantity?: number;
@@ -68,45 +69,53 @@ export async function GET(
      * ============================================================
      */
 
-    const cookieStore = await cookies();
+    const cookieStore =
+      await cookies();
 
-    const supabase = createServerClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
+    const supabase =
+      createServerClient(
+        supabaseUrl,
+        supabaseAnonKey,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll();
+            },
 
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(
-                ({ name, value, options }) => {
-                  cookieStore.set(
+            setAll(cookiesToSet) {
+              try {
+                cookiesToSet.forEach(
+                  ({
                     name,
                     value,
-                    options
-                  );
-                }
-              );
-            } catch {
-              // Ignora contexto sem escrita de cookie.
-            }
+                    options,
+                  }) => {
+                    cookieStore.set(
+                      name,
+                      value,
+                      options
+                    );
+                  }
+                );
+              } catch {
+                // Ignora contexto sem escrita de cookie.
+              }
+            },
           },
-        },
-      }
-    );
+        }
+      );
 
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser();
+    } =
+      await supabase.auth.getUser();
 
     if (userError || !user) {
       return NextResponse.json(
         {
-          error: "Usuário não autenticado.",
+          error:
+            "Usuário não autenticado.",
         },
         {
           status: 401,
@@ -116,34 +125,50 @@ export async function GET(
 
     /*
      * ============================================================
-     * 2. CONTA DO MERCADO LIVRE
+     * 2. TOKEN VÁLIDO DO MERCADO LIVRE
      * ============================================================
+     *
+     * A função central:
+     *
+     * - verifica se o access_token ainda é válido
+     * - usa refresh_token se necessário
+     * - salva os novos tokens no Supabase
+     * - retorna um access_token válido
      */
 
-    const {
-      data: conta,
-      error: contaError,
-    } = await supabase
-      .from("mercadolivre_contas")
-      .select(
-        `
-        ml_user_id,
-        access_token,
-        refresh_token,
-        expires_at
-        `
-      )
-      .eq("user_id", user.id)
-      .single();
+    let accessToken: string;
+    let mlUserId: string | number;
 
-    if (contaError || !conta) {
+    try {
+      const token =
+        await getMercadoLivreAccessToken(
+          supabase,
+          user.id
+        );
+
+      accessToken =
+        token.accessToken;
+
+      mlUserId =
+        token.mlUserId;
+    } catch (tokenError) {
+      console.error(
+        "Erro ao obter token Mercado Livre:",
+        tokenError
+      );
+
+      const mensagem =
+        tokenError instanceof Error
+          ? tokenError.message
+          : "Erro ao acessar conta Mercado Livre.";
+
       return NextResponse.json(
         {
-          error:
-            "Nenhuma conta do Mercado Livre conectada.",
+          conectado: false,
+          error: mensagem,
         },
         {
-          status: 404,
+          status: 401,
         }
       );
     }
@@ -152,6 +177,8 @@ export async function GET(
      * ============================================================
      * 3. PERÍODO
      * ============================================================
+     *
+     * Exemplo:
      *
      * /api/mercadolivre/vendas?dias=30
      */
@@ -164,17 +191,25 @@ export async function GET(
       );
 
     const dias =
-      Number.isFinite(diasParam) &&
+      Number.isFinite(
+        diasParam
+      ) &&
       diasParam > 0
-        ? Math.min(diasParam, 90)
+        ? Math.min(
+            diasParam,
+            90
+          )
         : 30;
 
-    const dataFim = new Date();
+    const dataFim =
+      new Date();
 
-    const dataInicio = new Date();
+    const dataInicio =
+      new Date();
 
     dataInicio.setDate(
-      dataInicio.getDate() - dias
+      dataInicio.getDate() -
+        dias
     );
 
     /*
@@ -183,17 +218,21 @@ export async function GET(
      * ============================================================
      */
 
-    const pedidos: MercadoLivreOrder[] =
+    const pedidos:
+      MercadoLivreOrder[] =
       [];
 
     let offset = 0;
+
     const limit = 50;
 
     while (true) {
       const params =
         new URLSearchParams({
           seller:
-            String(conta.ml_user_id),
+            String(
+              mlUserId
+            ),
 
           "order.date_created.from":
             dataInicio.toISOString(),
@@ -201,31 +240,39 @@ export async function GET(
           "order.date_created.to":
             dataFim.toISOString(),
 
-          sort: "date_desc",
+          sort:
+            "date_desc",
 
           limit:
-            String(limit),
+            String(
+              limit
+            ),
 
           offset:
-            String(offset),
+            String(
+              offset
+            ),
         });
 
       const url =
         `https://api.mercadolibre.com/orders/search?${params.toString()}`;
 
-      const response = await fetch(
-        url,
-        {
-          method: "GET",
+      const response =
+        await fetch(
+          url,
+          {
+            method:
+              "GET",
 
-          headers: {
-            Authorization:
-              `Bearer ${conta.access_token}`,
-          },
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+            },
 
-          cache: "no-store",
-        }
-      );
+            cache:
+              "no-store",
+          }
+        );
 
       const data =
         await response.json();
@@ -241,7 +288,8 @@ export async function GET(
             error:
               "Não foi possível buscar os pedidos do Mercado Livre.",
 
-            details: data,
+            details:
+              data,
           },
           {
             status:
@@ -251,23 +299,31 @@ export async function GET(
       }
 
       const results =
-        Array.isArray(data.results)
+        Array.isArray(
+          data.results
+        )
           ? data.results
           : [];
 
-      pedidos.push(...results);
+      pedidos.push(
+        ...results
+      );
 
       if (
-        results.length < limit
+        results.length <
+        limit
       ) {
         break;
       }
 
-      offset += limit;
+      offset +=
+        limit;
 
       const total =
         Number(
-          data.paging?.total ?? 0
+          data.paging
+            ?.total ??
+            0
         );
 
       if (
@@ -277,7 +333,9 @@ export async function GET(
         break;
       }
 
-      if (offset >= 1000) {
+      if (
+        offset >= 1000
+      ) {
         break;
       }
     }
@@ -289,121 +347,139 @@ export async function GET(
      */
 
     const vendas =
-      pedidos.map((pedido) => {
-        const itens =
-          Array.isArray(
-            pedido.order_items
-          )
-            ? pedido.order_items
-            : [];
+      pedidos.map(
+        (pedido) => {
+          const itens =
+            Array.isArray(
+              pedido.order_items
+            )
+              ? pedido.order_items
+              : [];
 
-        const quantidade =
-          itens.reduce(
-            (total, item) =>
-              total +
-              Number(
-                item.quantity ?? 0
-              ),
-            0
-          );
+          const quantidade =
+            itens.reduce(
+              (
+                total,
+                item
+              ) =>
+                total +
+                Number(
+                  item.quantity ??
+                    0
+                ),
+              0
+            );
 
-        const produtos =
-          itens.map((item) => ({
-            mlb:
-              item.item?.id ??
+          const produtos =
+            itens.map(
+              (item) => ({
+                mlb:
+                  item.item
+                    ?.id ??
+                  null,
+
+                titulo:
+                  item.item
+                    ?.title ??
+                  "",
+
+                sku:
+                  item.item
+                    ?.seller_sku ??
+                  null,
+
+                variation_id:
+                  item.item
+                    ?.variation_id ??
+                  null,
+
+                quantidade:
+                  Number(
+                    item.quantity ??
+                      0
+                  ),
+
+                preco_unitario:
+                  Number(
+                    item.unit_price ??
+                      0
+                  ),
+              })
+            );
+
+          const pagamentoAprovado =
+            pedido.payments
+              ?.find(
+                (
+                  pagamento
+                ) =>
+                  pagamento.status ===
+                  "approved"
+              );
+
+          return {
+            id:
+              pedido.id ??
               null,
 
-            titulo:
-              item.item?.title ??
+            data:
+              pedido.date_created ??
+              null,
+
+            data_fechamento:
+              pedido.date_closed ??
+              null,
+
+            status:
+              pedido.status ??
               "",
 
-            sku:
-              item.item
-                ?.seller_sku ??
-              null,
+            quantidade,
 
-            variation_id:
-              item.item
-                ?.variation_id ??
-              null,
-
-            quantidade:
+            faturamento:
               Number(
-                item.quantity ?? 0
+                pedido.total_amount ??
+                  0
               ),
 
-            preco_unitario:
+            valor_pago:
               Number(
-                item.unit_price ?? 0
+                pedido.paid_amount ??
+                  pagamentoAprovado
+                    ?.total_paid_amount ??
+                  0
               ),
-          }));
 
-        const pagamentoAprovado =
-          pedido.payments?.find(
-            (pagamento) =>
-              pagamento.status ===
-              "approved"
-          );
-
-        return {
-          id:
-            pedido.id ?? null,
-
-          data:
-            pedido.date_created ??
-            null,
-
-          data_fechamento:
-            pedido.date_closed ??
-            null,
-
-          status:
-            pedido.status ?? "",
-
-          quantidade,
-
-          faturamento:
-            Number(
-              pedido.total_amount ??
-                0
-            ),
-
-          valor_pago:
-            Number(
-              pedido.paid_amount ??
+            taxa_marketplace:
+              Number(
                 pagamentoAprovado
-                  ?.total_paid_amount ??
-                0
-            ),
+                  ?.marketplace_fee ??
+                  0
+              ),
 
-          taxa_marketplace:
-            Number(
-              pagamentoAprovado
-                ?.marketplace_fee ??
-                0
-            ),
+            frete:
+              Number(
+                pagamentoAprovado
+                  ?.shipping_cost ??
+                  0
+              ),
 
-          frete:
-            Number(
-              pagamentoAprovado
-                ?.shipping_cost ??
-                0
-            ),
+            comprador: {
+              id:
+                pedido.buyer
+                  ?.id ??
+                null,
 
-          comprador: {
-            id:
-              pedido.buyer?.id ??
-              null,
+              nickname:
+                pedido.buyer
+                  ?.nickname ??
+                null,
+            },
 
-            nickname:
-              pedido.buyer
-                ?.nickname ??
-              null,
-          },
-
-          produtos,
-        };
-      });
+            produtos,
+          };
+        }
+      );
 
     /*
      * ============================================================
@@ -420,7 +496,10 @@ export async function GET(
 
     const faturamento =
       pedidosValidos.reduce(
-        (total, venda) =>
+        (
+          total,
+          venda
+        ) =>
           total +
           venda.faturamento,
         0
@@ -428,7 +507,10 @@ export async function GET(
 
     const unidades =
       pedidosValidos.reduce(
-        (total, venda) =>
+        (
+          total,
+          venda
+        ) =>
           total +
           venda.quantidade,
         0
@@ -436,14 +518,18 @@ export async function GET(
 
     const totalTaxas =
       pedidosValidos.reduce(
-        (total, venda) =>
+        (
+          total,
+          venda
+        ) =>
           total +
           venda.taxa_marketplace,
         0
       );
 
     const ticketMedio =
-      pedidosValidos.length > 0
+      pedidosValidos.length >
+      0
         ? faturamento /
           pedidosValidos.length
         : 0;
@@ -455,7 +541,8 @@ export async function GET(
      */
 
     return NextResponse.json({
-      conectado: true,
+      conectado:
+        true,
 
       periodo: {
         dias,
