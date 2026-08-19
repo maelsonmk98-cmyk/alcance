@@ -37,11 +37,7 @@ export async function GET() {
             try {
               cookiesToSet.forEach(
                 ({ name, value, options }) => {
-                  cookieStore.set(
-                    name,
-                    value,
-                    options
-                  );
+                  cookieStore.set(name, value, options);
                 }
               );
             } catch {
@@ -80,43 +76,9 @@ export async function GET() {
     const itemId =
       "MLB4308749391";
 
-    const urlIndividual =
-      `https://api.mercadolibre.com/items/${itemId}/visits/time_window` +
-      `?last=30&unit=day`;
-
-    const individualResponse =
-      await fetch(
-        urlIndividual,
-        {
-          headers: {
-            Authorization:
-              `Bearer ${accessToken}`,
-          },
-          cache: "no-store",
-        }
-      );
-
-    const individualText =
-      await individualResponse.text();
-
-    const urlLote =
-      `https://api.mercadolibre.com/items/visits/time_window` +
-      `?ids=${itemId}&last=30&unit=day`;
-
-    const loteResponse =
-      await fetch(
-        urlLote,
-        {
-          headers: {
-            Authorization:
-              `Bearer ${accessToken}`,
-          },
-          cache: "no-store",
-        }
-      );
-
-    const loteText =
-      await loteResponse.text();
+    /*
+     * 1. DADOS DO ANÚNCIO
+     */
 
     const itemResponse =
       await fetch(
@@ -130,56 +92,162 @@ export async function GET() {
         }
       );
 
-    const itemText =
-      await itemResponse.text();
+    const itemData =
+      await itemResponse.json();
+
+    /*
+     * 2. VISITAS NOS ÚLTIMOS 30 DIAS
+     */
+
+    const visitas30Response =
+      await fetch(
+        `https://api.mercadolibre.com/items/${itemId}/visits/time_window?last=30&unit=day`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+    const visitas30Data =
+      await visitas30Response.json();
+
+    /*
+     * 3. VISITAS HISTÓRICAS
+     */
+
+    const historicoResponse =
+      await fetch(
+        `https://api.mercadolibre.com/visits/items?ids=${itemId}`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+    const historicoData =
+      await historicoResponse.json();
+
+    /*
+     * 4. VISITAS POR INTERVALO EXPLÍCITO
+     */
+
+    const fim =
+      new Date();
+
+    const inicio =
+      new Date();
+
+    inicio.setDate(
+      inicio.getDate() - 30
+    );
+
+    const dateFrom =
+      inicio.toISOString();
+
+    const dateTo =
+      fim.toISOString();
+
+    const intervaloResponse =
+      await fetch(
+        `https://api.mercadolibre.com/items/${itemId}/visits/time_window` +
+          `?date_from=${encodeURIComponent(dateFrom)}` +
+          `&date_to=${encodeURIComponent(dateTo)}` +
+          `&unit=day`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+    const intervaloData =
+      await intervaloResponse.json();
 
     return NextResponse.json({
       item_id: itemId,
 
-      teste_individual: {
-        status:
-          individualResponse.status,
-
-        content_type:
-          individualResponse.headers.get(
-            "content-type"
-          ),
-
-        resposta_bruta:
-          individualText,
-      },
-
-      teste_lote: {
-        status:
-          loteResponse.status,
-
-        content_type:
-          loteResponse.headers.get(
-            "content-type"
-          ),
-
-        resposta_bruta:
-          loteText,
-      },
-
       anuncio: {
-        status:
+        status_http:
           itemResponse.status,
 
-        resposta_bruta:
-          itemText,
+        id:
+          itemData?.id ?? null,
+
+        title:
+          itemData?.title ?? null,
+
+        status:
+          itemData?.status ?? null,
+
+        sold_quantity:
+          itemData?.sold_quantity ?? null,
+
+        available_quantity:
+          itemData?.available_quantity ?? null,
+
+        parent_item:
+          itemData?.parent_item_id ??
+          itemData?.parent_item ??
+          null,
+
+        start_time:
+          itemData?.start_time ?? null,
+
+        stop_time:
+          itemData?.stop_time ?? null,
+
+        end_time:
+          itemData?.end_time ?? null,
+      },
+
+      visitas_30_dias: {
+        status:
+          visitas30Response.status,
+
+        resposta:
+          visitas30Data,
+      },
+
+      visitas_historicas: {
+        status:
+          historicoResponse.status,
+
+        resposta:
+          historicoData,
+      },
+
+      visitas_intervalo: {
+        status:
+          intervaloResponse.status,
+
+        date_from:
+          dateFrom,
+
+        date_to:
+          dateTo,
+
+        resposta:
+          intervaloData,
       },
     });
   } catch (error) {
     console.error(
-      "Diagnóstico visitas Mercado Livre:",
+      "Diagnóstico avançado de visitas:",
       error
     );
 
     return NextResponse.json(
       {
         error:
-          "Erro no diagnóstico de visitas.",
+          "Erro no diagnóstico avançado de visitas.",
 
         details:
           error instanceof Error
