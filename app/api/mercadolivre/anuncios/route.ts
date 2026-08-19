@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getMercadoLivreAccessToken } from "@/lib/mercadolivre/getAccessToken";
 
 type MercadoLivreAttribute = {
   id?: string;
@@ -30,9 +31,7 @@ type MercadoLivreItemResponse = {
     listing_type_id?: string;
     seller_custom_field?: string | null;
     inventory_id?: string | null;
-
     attributes?: MercadoLivreAttribute[];
-
     variations?: MercadoLivreVariation[];
   };
 };
@@ -112,34 +111,51 @@ export async function GET() {
 
     /*
      * ============================================================
-     * 2. CONTA MERCADO LIVRE
+     * 2. OBTER TOKEN VÁLIDO DO MERCADO LIVRE
      * ============================================================
+     *
+     * Aqui está a principal mudança.
+     *
+     * A função verifica:
+     *
+     * - se o access_token ainda é válido
+     * - se está próximo de expirar
+     * - se precisa usar refresh_token
+     *
+     * Se necessário, ela renova automaticamente
+     * e salva os novos tokens no Supabase.
      */
 
-    const {
-      data: conta,
-      error: contaError,
-    } = await supabase
-      .from("mercadolivre_contas")
-      .select(
-        `
-        ml_user_id,
-        access_token,
-        refresh_token,
-        expires_at
-        `
-      )
-      .eq("user_id", user.id)
-      .single();
+    let accessToken: string;
+    let mlUserId: string | number;
 
-    if (contaError || !conta) {
+    try {
+      const token =
+        await getMercadoLivreAccessToken(
+          supabase,
+          user.id
+        );
+
+      accessToken = token.accessToken;
+      mlUserId = token.mlUserId;
+    } catch (tokenError) {
+      console.error(
+        "Erro ao obter token Mercado Livre:",
+        tokenError
+      );
+
+      const mensagem =
+        tokenError instanceof Error
+          ? tokenError.message
+          : "Erro ao acessar conta Mercado Livre.";
+
       return NextResponse.json(
         {
-          error:
-            "Nenhuma conta do Mercado Livre conectada.",
+          conectado: false,
+          error: mensagem,
         },
         {
-          status: 404,
+          status: 401,
         }
       );
     }
@@ -157,7 +173,7 @@ export async function GET() {
 
     while (true) {
       const searchUrl =
-        `https://api.mercadolibre.com/users/${conta.ml_user_id}/items/search` +
+        `https://api.mercadolibre.com/users/${mlUserId}/items/search` +
         `?limit=${limit}&offset=${offset}`;
 
       const searchResponse = await fetch(
@@ -165,7 +181,7 @@ export async function GET() {
         {
           headers: {
             Authorization:
-              `Bearer ${conta.access_token}`,
+              `Bearer ${accessToken}`,
           },
           cache: "no-store",
         }
@@ -175,6 +191,11 @@ export async function GET() {
         await searchResponse.json();
 
       if (!searchResponse.ok) {
+        console.error(
+          "Erro ao buscar anúncios Mercado Livre:",
+          searchData
+        );
+
         return NextResponse.json(
           {
             error:
@@ -236,7 +257,7 @@ export async function GET() {
         {
           headers: {
             Authorization:
-              `Bearer ${conta.access_token}`,
+              `Bearer ${accessToken}`,
           },
           cache: "no-store",
         }
@@ -280,13 +301,6 @@ export async function GET() {
          * ========================================================
          * SKU
          * ========================================================
-         *
-         * Ordem:
-         *
-         * 1. attributes -> SELLER_SKU
-         * 2. seller_custom_field
-         * 3. SELLER_SKU das variações
-         * 4. seller_custom_field das variações
          */
 
         const skuAtributo =
@@ -371,12 +385,6 @@ export async function GET() {
          * ========================================================
          * ESTOQUE
          * ========================================================
-         *
-         * Por enquanto mantemos exatamente
-         * o available_quantity retornado pelo ML.
-         *
-         * Depois vamos tratar inventory_id
-         * separadamente.
          */
 
         const estoque =
@@ -469,7 +477,7 @@ export async function GET() {
       conectado: true,
 
       ml_user_id:
-        conta.ml_user_id,
+        mlUserId,
 
       resumo: {
         total:
