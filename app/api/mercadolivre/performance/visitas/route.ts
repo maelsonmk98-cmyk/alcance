@@ -5,6 +5,7 @@ import { getMercadoLivreAccessToken } from "@/lib/mercadolivre/getAccessToken";
 
 type ItemSearchResponse = {
   results?: string[];
+
   paging?: {
     total?: number;
   };
@@ -29,7 +30,10 @@ export async function GET(
   const supabaseAnonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (
+    !supabaseUrl ||
+    !supabaseAnonKey
+  ) {
     return NextResponse.json(
       {
         error:
@@ -90,7 +94,10 @@ export async function GET(
     } =
       await supabase.auth.getUser();
 
-    if (userError || !user) {
+    if (
+      userError ||
+      !user
+    ) {
       return NextResponse.json(
         {
           error:
@@ -148,14 +155,13 @@ export async function GET(
 
     /*
      * ============================================================
-     * 3. PERÍODO SOLICITADO
+     * 3. PERÍODO
      * ============================================================
      *
-     * Mantemos o parâmetro dias porque ele será útil
-     * na interface.
+     * Mantemos o parâmetro dias apenas para
+     * compatibilidade com a interface.
      *
-     * Porém a fonte de visitas usada aqui é o
-     * histórico retornado pelo endpoint /visits/items.
+     * O endpoint histórico não é limitado por esse período.
      */
 
     const diasParam =
@@ -178,7 +184,7 @@ export async function GET(
 
     /*
      * ============================================================
-     * 4. LISTAR ANÚNCIOS DO VENDEDOR
+     * 4. LISTAR ANÚNCIOS
      * ============================================================
      */
 
@@ -198,7 +204,8 @@ export async function GET(
         await fetch(
           url,
           {
-            method: "GET",
+            method:
+              "GET",
 
             headers: {
               Authorization:
@@ -211,9 +218,12 @@ export async function GET(
         );
 
       const data =
-        (await response.json()) as ItemSearchResponse;
+        (await response.json()) as
+          ItemSearchResponse;
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         console.error(
           "Erro ao listar anúncios para visitas:",
           data
@@ -278,145 +288,138 @@ export async function GET(
 
     /*
      * ============================================================
-     * 5. CONSULTAR VISITAS HISTÓRICAS EM LOTES
+     * 5. CONSULTAR VISITAS HISTÓRICAS
      * ============================================================
      *
-     * Endpoint que funcionou no diagnóstico:
+     * Aqui usamos o formato que já foi comprovado
+     * no diagnóstico:
      *
-     * /visits/items?ids=MLB1,MLB2,...
+     * GET /visits/items?ids=MLB4308749391
      *
-     * Exemplo real retornado:
+     * Resposta real:
      *
      * {
      *   "MLB4308749391": 150
      * }
-     */
-
-    const mapaVisitas =
-      new Map<
-        string,
-        number
-      >();
-
-    const tamanhoLote =
-      20;
-
-    for (
-      let i = 0;
-      i < ids.length;
-      i += tamanhoLote
-    ) {
-      const lote =
-        ids.slice(
-          i,
-          i +
-            tamanhoLote
-        );
-
-      const url =
-        `https://api.mercadolibre.com/visits/items` +
-        `?ids=${encodeURIComponent(
-          lote.join(",")
-        )}`;
-
-      try {
-        const response =
-          await fetch(
-            url,
-            {
-              method: "GET",
-
-              headers: {
-                Authorization:
-                  `Bearer ${accessToken}`,
-              },
-
-              cache:
-                "no-store",
-            }
-          );
-
-        const data =
-          (await response.json()) as
-            VisitasHistoricasResponse;
-
-        if (!response.ok) {
-          console.error(
-            "Erro ao consultar lote de visitas históricas:",
-            {
-              status:
-                response.status,
-
-              lote,
-
-              resposta:
-                data,
-            }
-          );
-
-          continue;
-        }
-
-        lote.forEach(
-          (itemId) => {
-            const total =
-              Number(
-                data?.[
-                  itemId
-                ] ??
-                  0
-              );
-
-            mapaVisitas.set(
-              itemId,
-              Number.isFinite(
-                total
-              )
-                ? Math.max(
-                    0,
-                    total
-                  )
-                : 0
-            );
-          }
-        );
-      } catch (error) {
-        console.error(
-          "Erro ao consultar lote de visitas históricas:",
-          {
-            lote,
-            error,
-          }
-        );
-      }
-    }
-
-    /*
-     * ============================================================
-     * 6. GARANTIR TODOS OS ANÚNCIOS
-     * ============================================================
+     *
+     * Fazemos em grupos pequenos paralelos para
+     * não disparar 315 chamadas simultaneamente.
      */
 
     const visitas:
       VisitaItem[] =
-      ids.map(
-        (
-          itemId
-        ) => ({
-          item_id:
-            itemId,
+      [];
 
-          total:
-            mapaVisitas.get(
+    const tamanhoGrupo =
+      10;
+
+    for (
+      let i = 0;
+      i < ids.length;
+      i += tamanhoGrupo
+    ) {
+      const grupo =
+        ids.slice(
+          i,
+          i + tamanhoGrupo
+        );
+
+      const resultadosGrupo =
+        await Promise.all(
+          grupo.map(
+            async (
               itemId
-            ) ??
-            0,
-        })
+            ): Promise<VisitaItem> => {
+              try {
+                const url =
+                  `https://api.mercadolibre.com/visits/items?ids=${itemId}`;
+
+                const response =
+                  await fetch(
+                    url,
+                    {
+                      method:
+                        "GET",
+
+                      headers: {
+                        Authorization:
+                          `Bearer ${accessToken}`,
+                      },
+
+                      cache:
+                        "no-store",
+                    }
+                  );
+
+                const data =
+                  (await response.json()) as
+                    VisitasHistoricasResponse;
+
+                if (
+                  !response.ok
+                ) {
+                  console.error(
+                    `Erro ao consultar visitas de ${itemId}:`,
+                    data
+                  );
+
+                  return {
+                    item_id:
+                      itemId,
+
+                    total:
+                      0,
+                  };
+                }
+
+                const total =
+                  Number(
+                    data?.[
+                      itemId
+                    ] ??
+                      0
+                  );
+
+                return {
+                  item_id:
+                    itemId,
+
+                  total:
+                    Number.isFinite(
+                      total
+                    )
+                      ? Math.max(
+                          0,
+                          total
+                        )
+                      : 0,
+                };
+              } catch (error) {
+                console.error(
+                  `Erro ao consultar visitas de ${itemId}:`,
+                  error
+                );
+
+                return {
+                  item_id:
+                    itemId,
+
+                  total:
+                    0,
+                };
+              }
+            }
+          )
+        );
+
+      visitas.push(
+        ...resultadosGrupo
       );
+    }
 
     /*
      * ============================================================
-     * 7. RESUMO
+     * 6. RESUMO
      * ============================================================
      */
 
@@ -433,7 +436,9 @@ export async function GET(
 
     const anunciosComVisitas =
       visitas.filter(
-        (item) =>
+        (
+          item
+        ) =>
           item.total >
           0
       ).length;
@@ -451,14 +456,16 @@ export async function GET(
 
     /*
      * ============================================================
-     * 8. RANKINGS
+     * 7. RANKING
      * ============================================================
      */
 
     const maisVisitados =
       [...visitas]
         .filter(
-          (item) =>
+          (
+            item
+          ) =>
             item.total >
             0
         )
@@ -477,22 +484,13 @@ export async function GET(
 
     /*
      * ============================================================
-     * 9. RETORNO
+     * 8. RETORNO
      * ============================================================
      */
 
     return NextResponse.json({
       conectado:
         true,
-
-      /*
-       * Importante:
-       *
-       * O parâmetro dias é mantido para compatibilidade
-       * com a interface, mas as visitas abaixo são
-       * históricas/acumuladas, pois foi a fonte que
-       * retornou dados confiáveis no diagnóstico.
-       */
 
       periodo: {
         dias,
