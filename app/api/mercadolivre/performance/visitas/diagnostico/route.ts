@@ -80,11 +80,6 @@ export async function GET() {
     const itemId =
       "MLB4308749391";
 
-    /*
-     * TESTE 1
-     * Endpoint individual
-     */
-
     const urlIndividual =
       `https://api.mercadolibre.com/items/${itemId}/visits/time_window` +
       `?last=30&unit=day`;
@@ -104,11 +99,6 @@ export async function GET() {
     const individualText =
       await individualResponse.text();
 
-    /*
-     * TESTE 2
-     * Endpoint em lote
-     */
-
     const urlLote =
       `https://api.mercadolibre.com/items/visits/time_window` +
       `?ids=${itemId}&last=30&unit=day`;
@@ -127,11 +117,6 @@ export async function GET() {
 
     const loteText =
       await loteResponse.text();
-
-    /*
-     * TESTE 3
-     * Dados básicos do anúncio
-     */
 
     const itemResponse =
       await fetch(
