@@ -42,8 +42,8 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
 
   return (
     <>
-      {/* Cabeçalho claro para contrastar com a logo original */}
-      <div className="flex h-[96px] shrink-0 items-center border-b border-slate-200 bg-[#F1F5F9] px-3.5">
+      {/* Cabeçalho integrado ao menu azul-marinho */}
+      <div className="flex h-[96px] shrink-0 items-center border-b border-white/[0.07] bg-[#071E49] px-4">
         <Link
           href="/dashboard"
           onClick={onNavigate}
@@ -51,7 +51,7 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
         >
           <div className="relative h-[54px] w-[54px] shrink-0">
             <Image
-              src="/logo-alcance-transparente.png"
+              src="/logo-alcance-clara.png"
               alt="Logomarca Alcance"
               fill
               sizes="54px"
@@ -60,10 +60,10 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-[22px] font-bold leading-tight tracking-tight text-[#071E49]">
+            <h1 className="text-[22px] font-bold leading-tight tracking-tight text-white">
               Alcance
             </h1>
-            <p className="mt-1 text-[8px] font-medium uppercase leading-[1.4] tracking-normal text-[#64748B]">
+            <p className="mt-1 text-[8px] font-medium uppercase leading-[1.4] tracking-[-0.01em] text-white/55">
               Análise de produtos e margens
             </p>
           </div>
