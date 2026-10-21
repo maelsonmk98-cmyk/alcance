@@ -1,3 +1,99 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  LayoutDashboard,
+  Package,
+  Calculator,
+  Megaphone,
+  Truck,
+  BarChart3,
+  Wallet,
+  Settings,
+  ChevronDown,
+  CircleHelp,
+  ExternalLink,
+  Menu,
+  X,
+} from "lucide-react";
+
+const menuItems = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Estoque", href: "/", icon: Package },
+  { label: "Produtos", href: "/produtos", icon: Package },
+  { label: "Vendas", href: "/vendas", icon: Wallet },
+  { label: "Calculadora", href: "/calculadora", icon: Calculator },
+  { label: "Anúncios", href: "/anuncios", icon: Megaphone },
+  { label: "Fornecedores", href: "/fornecedores", icon: Truck },
+  { label: "Relatórios", href: "/relatorios", icon: BarChart3 },
+  { label: "Despesas", href: "/despesas", icon: Wallet },
+  { label: "Configurações", href: "/configuracoes", icon: Settings },
+];
+
+type SidebarContentProps = {
+  onNavigate?: () => void;
+};
+
+function SidebarContent({ onNavigate }: SidebarContentProps) {
+  const pathname = usePathname();
+
+  return (
+    <>
+      {/* Logo oficial da Alcance */}
+      <div className="flex h-[96px] shrink-0 items-center border-b border-white/[0.07] px-6">
+        <Link
+          href="/dashboard"
+          onClick={onNavigate}
+          className="flex min-w-0 items-center gap-3"
+        >
+          <div className="relative h-12 w-12 shrink-0">
+            <Image
+              src="/logo-alcance.png"
+              alt="Logomarca Alcance"
+              fill
+              sizes="48px"
+              className="object-contain"
+              priority
+            />
+          </div>
+
+          <div className="min-w-0">
+            <h1 className="text-[23px] font-bold leading-none tracking-[-0.04em]">
+              Alcance
+            </h1>
+            <p className="mt-1.5 whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.15em] text-white/40">
+              Análise de produtos e margens
+            </p>
+          </div>
+        </Link>
+      </div>
+
+      {/* Navegação */}
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-6">
+        <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">
+          Menu principal
+        </p>
+
+        <div className="space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={[
+                  "group relative flex h-11 items-center gap-3 rounded-xl px-3.5 text-[13.5px] font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-white/[0.10] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
                     : "text-white/55 hover:bg-white/[0.055] hover:text-white",
                 ].join(" ")}
               >
@@ -126,3 +222,4 @@ export default function Sidebar() {
       </aside>
     </>
   );
+}
