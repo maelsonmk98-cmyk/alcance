@@ -42,19 +42,19 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
 
   return (
     <>
-      {/* Cabeçalho claro para destacar a logo oficial */}
-      <div className="flex h-[96px] shrink-0 items-center border-b border-slate-200 bg-[#F1F5F9] px-4">
+      {/* Cabeçalho claro para contrastar com a logo original */}
+      <div className="flex h-[96px] shrink-0 items-center border-b border-slate-200 bg-[#F1F5F9] px-3.5">
         <Link
           href="/dashboard"
           onClick={onNavigate}
-          className="flex w-full min-w-0 items-center gap-3"
+          className="flex w-full min-w-0 items-center gap-2.5"
         >
-          <div className="relative h-14 w-14 shrink-0">
+          <div className="relative h-[54px] w-[54px] shrink-0">
             <Image
               src="/logo-alcance-transparente.png"
               alt="Logomarca Alcance"
               fill
-              sizes="56px"
+              sizes="54px"
               className="object-contain"
               priority
             />
@@ -63,7 +63,7 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
             <h1 className="text-[22px] font-bold leading-tight tracking-tight text-[#071E49]">
               Alcance
             </h1>
-            <p className="mt-1 text-[8px] font-medium uppercase leading-3 tracking-normal text-slate-600">
+            <p className="mt-1 text-[8px] font-medium uppercase leading-[1.4] tracking-normal text-[#64748B]">
               Análise de produtos e margens
             </p>
           </div>
@@ -75,7 +75,6 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
         <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">
           Menu principal
         </p>
-
         <div className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
