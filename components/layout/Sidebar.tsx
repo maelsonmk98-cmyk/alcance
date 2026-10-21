@@ -13,7 +13,6 @@ import {
   BarChart3,
   Wallet,
   Settings,
-  ChevronDown,
   CircleHelp,
   ExternalLink,
   Menu,
@@ -134,21 +133,32 @@ function SidebarContent({ onNavigate }: SidebarContentProps) {
         </div>
       </nav>
 
-      {/* Usuário */}
-      <div className="shrink-0 border-t border-white/[0.07] p-3">
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition hover:bg-white/[0.055]"
+      {/* Identidade visual no rodapé */}
+      <div className="shrink-0 border-t border-white/[0.07] bg-[#071E49] px-4 py-3">
+        <Link
+          href="/dashboard"
+          onClick={onNavigate}
+          aria-label="Voltar ao dashboard Alcance"
+          className="flex min-w-0 items-center gap-2.5 rounded-lg transition-opacity hover:opacity-85"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F47B20] text-[11px] font-bold text-white">
-            AD
+          <div className="relative h-[48px] w-[48px] shrink-0">
+            <Image
+              src="/logo-alcance-clara.png"
+              alt=""
+              fill
+              sizes="48px"
+              className="object-contain"
+            />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[12px] font-semibold">Alcance Digital</p>
-            <p className="mt-0.5 text-[10px] text-white/35">Administrador</p>
+            <p className="text-[19px] font-bold leading-tight tracking-tight text-white">
+              Alcance
+            </p>
+            <p className="mt-0.5 text-[8px] font-medium uppercase leading-[1.35] tracking-[-0.01em] text-white/55">
+              Análise de produtos e margens
+            </p>
           </div>
-          <ChevronDown size={16} className="text-white/30" />
-        </button>
+        </Link>
       </div>
     </>
   );
