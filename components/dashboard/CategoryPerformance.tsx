@@ -88,8 +88,6 @@ export default function CategoryPerformance({
        * ============================================================
        */
 
-      const hoje = new Date();
-
       const inicioAtual = dataInicio
         ? criarDataLocal(dataInicio)
         : (() => {
@@ -410,251 +408,102 @@ export default function CategoryPerformance({
   ]);
 
   return (
-    <div
-      className="
-        relative
-        h-[310px]
-        overflow-hidden
-        rounded-[14px]
-        border
-        border-[#233754]
-        bg-[#0d1b2f]
-        px-4
-        py-3
-        shadow-[0_8px_24px_rgba(0,0,0,0.15)]
-      "
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-violet-500/[0.035] to-transparent" />
+    <section className="relative flex h-full min-h-[310px] min-w-0 flex-col overflow-hidden rounded-[18px] border border-[#233754] bg-[#0d1b2f] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-violet-500/[0.06] to-transparent" />
 
-      <div className="relative flex h-full flex-col">
-
-        {/* Cabeçalho */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-[14px] font-bold text-white">
-              Desempenho por Categoria
-            </h2>
-
-            <p className="mt-0.5 text-[8px] text-slate-600">
-              Participação no faturamento • {quantidadeDias} dias
-            </p>
-          </div>
-
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-violet-500/10 bg-violet-500/10">
-            <PieChart
-              size={13}
-              className="text-violet-400"
-            />
-          </div>
+      <div className="relative flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-bold tracking-tight text-white">Desempenho por Categoria</h2>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Participação no faturamento <span className="text-slate-600">•</span> {quantidadeDias} dias
+          </p>
         </div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-400/15 bg-violet-500/10">
+          <PieChart size={17} className="text-violet-400" />
+        </div>
+      </div>
 
-        {/* Conteúdo */}
-        <div className="mt-2 min-h-0 flex-1">
-          {carregando ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-violet-400" />
-
-                Carregando...
-              </div>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center py-3">
+        {carregando ? (
+          <div className="flex items-center gap-2 text-xs text-slate-400" role="status">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-orange-400" />
+            Carregando categorias...
+          </div>
+        ) : total <= 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border-[9px] border-[#24354d]">
+              <PieChart size={20} className="text-slate-500" />
             </div>
-          ) : total <= 0 ? (
-            <div className="grid h-full grid-cols-[150px_1fr] items-center gap-3">
-              <div className="relative flex items-center justify-center">
-                <svg
-                  width="138"
-                  height="138"
-                  viewBox="0 0 150 150"
-                >
+            <p className="text-sm font-semibold text-slate-200">Nenhuma venda no período</p>
+            <p className="text-xs text-slate-500">Altere o período para visualizar as categorias.</p>
+          </div>
+        ) : (
+          <div className="grid w-full min-w-0 grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(135px,0.85fr)_minmax(0,1.15fr)] lg:gap-5">
+            <div className="relative mx-auto flex w-full max-w-[192px] items-center justify-center">
+              <svg viewBox="0 0 150 150" className="h-auto w-full max-w-[180px] -rotate-90" role="img" aria-label={`Distribuição do faturamento por categoria, total de ${formatarMoeda(total)}`}>
+                <circle cx="75" cy="75" r={raio} fill="none" stroke="#21334b" strokeWidth="17" />
+                {segmentos.map((segmento) => (
                   <circle
-                    cx="75"
-                    cy="75"
-                    r="52"
-                    fill="none"
-                    stroke="#192b42"
-                    strokeWidth="20"
-                  />
-                </svg>
-
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="text-[12px] font-bold text-white">
-                    R$ 0,00
-                  </p>
-
-                  <p className="text-[8px] text-slate-600">
-                    Total
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  "Categoria 1",
-                  "Categoria 2",
-                  "Categoria 3",
-                  "Categoria 4",
-                  "Outros",
-                ].map(
-                  (
-                    nome,
-                    index
-                  ) => (
-                    <div
-                      key={nome}
-                      className="flex items-center gap-2"
-                    >
-                      <span
-                        className="h-2 w-2 rounded-full opacity-25"
-                        style={{
-                          backgroundColor:
-                            CORES[
-                              index %
-                                CORES.length
-                            ],
-                        }}
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[8px] text-slate-700">
-                            {nome}
-                          </span>
-
-                          <span className="text-[8px] text-slate-700">
-                            0,0%
-                          </span>
-                        </div>
-
-                        <div className="mt-0.5 text-[9px] font-semibold text-slate-700">
-                          R$ 0,00
-                        </div>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="grid h-full grid-cols-[155px_1fr] items-center gap-4">
-
-              {/* Donut */}
-              <div className="relative flex items-center justify-center">
-                <svg
-                  width="145"
-                  height="145"
-                  viewBox="0 0 150 150"
-                  className="-rotate-90"
-                >
-                  <circle
+                    key={segmento.nome}
                     cx="75"
                     cy="75"
                     r={raio}
                     fill="none"
-                    stroke="#192b42"
-                    strokeWidth="20"
-                  />
-
-                  {segmentos.map(
-                    (segmento) => (
-                      <circle
-                        key={
-                          segmento.nome
-                        }
-                        cx="75"
-                        cy="75"
-                        r={raio}
-                        fill="none"
-                        stroke={
-                          segmento.cor
-                        }
-                        strokeWidth="20"
-                        strokeDasharray={
-                          segmento.dasharray
-                        }
-                        strokeDashoffset={
-                          segmento.dashoffset
-                        }
-                      />
-                    )
-                  )}
-                </svg>
-
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="max-w-[95px] truncate text-center text-[11px] font-bold text-white">
-                    {formatarMoeda(
-                      total
-                    )}
-                  </p>
-
-                  <p className="text-[8px] text-slate-600">
-                    Total
-                  </p>
-                </div>
-              </div>
-
-              {/* Legenda */}
-              <div className="space-y-2.5">
-                {categorias.map(
-                  (
-                    categoria,
-                    index
-                  ) => (
-                    <div
-                      key={
-                        categoria.nome
-                      }
-                      className="flex items-center gap-2"
-                    >
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{
-                          backgroundColor:
-                            CORES[
-                              index %
-                                CORES.length
-                            ],
-                        }}
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-[8px] text-slate-400">
-                              {
-                                categoria.nome
-                              }
-                            </p>
-
-                            <p className="mt-0.5 truncate text-[9px] font-bold text-white">
-                              {formatarMoeda(
-                                categoria.valor
-                              )}
-                            </p>
-                          </div>
-
-                          <span className="text-[8px] text-slate-500">
-                            {categoria.percentual.toFixed(
-                              1
-                            )}
-                            %
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                )}
+                    stroke={segmento.cor}
+                    strokeWidth="17"
+                    strokeDasharray={segmento.dasharray}
+                    strokeDashoffset={segmento.dashoffset}
+                    className="transition-opacity duration-200"
+                  >
+                    <title>{`${segmento.nome}: ${formatarMoeda(segmento.valor)} (${segmento.percentual.toFixed(1)}%)`}</title>
+                  </circle>
+                ))}
+              </svg>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] font-medium text-slate-400">Faturamento</span>
+                <strong className="mt-1 text-[clamp(13px,1.1vw,18px)] font-extrabold tracking-tight text-white tabular-nums">
+                  {formatarMoeda(total)}
+                </strong>
+                <span className="mt-0.5 text-[10px] text-slate-500">Total</span>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Rodapé */}
-        <div className="mt-1 border-t border-[#233754]/60 pt-2">
-          <p className="text-center text-[8px] text-slate-600">
-            Distribuição por categoria • {quantidadeDias} dias
-          </p>
-        </div>
+            <div className="min-w-0 space-y-3">
+              {categorias.map((categoria, index) => (
+                <div key={categoria.nome} className="min-w-0">
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: CORES[index % CORES.length] }}
+                      />
+                      <span className="truncate text-[11px] font-medium text-slate-300" title={categoria.nome}>
+                        {categoria.nome}
+                      </span>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-semibold text-slate-400 tabular-nums">
+                      {categoria.percentual.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-3 pl-[18px]">
+                    <strong className="text-[12px] font-bold text-white tabular-nums">{formatarMoeda(categoria.valor)}</strong>
+                  </div>
+                  <div className="ml-[18px] mt-1.5 h-1 overflow-hidden rounded-full bg-[#233650]">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-500"
+                      style={{ width: `${Math.min(100, Math.max(0, categoria.percentual))}%`, backgroundColor: CORES[index % CORES.length] }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+
+      <div className="relative border-t border-[#233754]/70 pt-2.5 text-center text-[10px] text-slate-500">
+        Distribuição por categoria • {quantidadeDias} dias
+      </div>
+    </section>
   );
 }
