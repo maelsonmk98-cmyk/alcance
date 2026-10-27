@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { BarChart3, CalendarDays } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Venda = {
@@ -576,6 +576,8 @@ export default function SalesChart({
       0
     );
 
+  const temBaseAnterior = faturamentoAnterior > 0;
+
   const variacao =
     faturamentoAnterior > 0
       ? (
@@ -585,8 +587,6 @@ export default function SalesChart({
           ) /
           faturamentoAnterior
         ) * 100
-      : faturamentoAtual > 0
-      ? 100
       : 0;
 
   /*
@@ -921,68 +921,38 @@ export default function SalesChart({
         relative
         h-[310px]
         overflow-hidden
-        rounded-[14px]
+        rounded-[16px]
         border
-        border-[#233754]
-        bg-[#0d1b2f]
+        border-[#203753]
+        bg-[#0b1d33]
         px-4
         py-3
-        shadow-[0_8px_24px_rgba(0,0,0,0.15)]
+        shadow-[0_12px_36px_rgba(0,0,0,0.18)]
       "
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/[0.035] to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-orange-500/[0.045] to-transparent" />
 
       <div className="relative flex h-full flex-col">
 
-        {/* Cabeçalho */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-[14px] font-bold text-white">
-              Faturamento
-            </h2>
-
-            <div className="mt-1 flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                <span className="h-[2px] w-4 rounded-full bg-blue-500" />
-
-                <span className="text-[8px] text-slate-500">
-                  Período atual
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="w-4 border-t border-dashed border-slate-500" />
-
-                <span className="text-[8px] text-slate-500">
-                  Período anterior
-                </span>
-              </div>
+        {/* Cabeçalho no estilo Alcance */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400">
+              <BarChart3 size={20} strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-[14px] font-bold text-white">Faturamento</h2>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                Evolução do faturamento no período selecionado
+              </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            className="
-              flex
-              h-7
-              items-center
-              gap-1
-              rounded-md
-              border
-              border-[#28405e]
-              bg-[#11243d]
-              px-2
-              text-[9px]
-              font-medium
-              text-slate-400
-            "
-          >
-            {quantidadeDias} dias
-
-            <ChevronDown
-              size={11}
-            />
-          </button>
+          {/* O período é controlado pelo filtro geral do Dashboard. */}
+          <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#28405e] bg-[#11243d] px-2.5 py-2 text-[10px] text-slate-300">
+            <CalendarDays size={13} className="text-orange-400" />
+            <span>{quantidadeDias} dias</span>
+          </div>
         </div>
 
         {/* Gráfico */}
@@ -990,7 +960,7 @@ export default function SalesChart({
           {carregando ? (
             <div className="flex h-full items-center justify-center">
               <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-blue-400" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-orange-400" />
 
                 Carregando...
               </div>
@@ -1016,19 +986,19 @@ export default function SalesChart({
                 >
                   <stop
                     offset="0%"
-                    stopColor="#2563EB"
+                    stopColor="#F97316"
                     stopOpacity="0.26"
                   />
 
                   <stop
                     offset="70%"
-                    stopColor="#2563EB"
+                    stopColor="#F97316"
                     stopOpacity="0.05"
                   />
 
                   <stop
                     offset="100%"
-                    stopColor="#2563EB"
+                    stopColor="#F97316"
                     stopOpacity="0"
                   />
                 </linearGradient>
@@ -1120,8 +1090,8 @@ export default function SalesChart({
                     linhaAtual
                   }
                   fill="none"
-                  stroke="#3B82F6"
-                  strokeWidth="2.3"
+                  stroke="#F97316"
+                  strokeWidth="2.8"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
@@ -1223,9 +1193,9 @@ export default function SalesChart({
                         fill={
                           ativo
                             ? "#ffffff"
-                            : "#3B82F6"
+                            : "#F97316"
                         }
-                        stroke="#2563EB"
+                        stroke="#EA580C"
                         strokeWidth={
                           ativo
                             ? 3
@@ -1247,7 +1217,7 @@ export default function SalesChart({
                           textAnchor="middle"
                           fill={
                             ativo
-                              ? "#93C5FD"
+                              ? "#FDBA74"
                               : "#64748B"
                           }
                           fontSize="14"
@@ -1318,7 +1288,7 @@ export default function SalesChart({
                 </p>
 
                 <div className="mt-1 flex items-center justify-between gap-4">
-                  <span className="text-[8px] text-blue-400">
+                  <span className="text-[8px] text-orange-400">
                     Atual
                   </span>
 
@@ -1358,30 +1328,21 @@ export default function SalesChart({
 
             {!carregando && (
               <span
-                className={`ml-2 text-[8px] font-semibold ${
-                  variacao >
-                  0
+                className={`ml-2 text-[9px] font-semibold ${
+                  !temBaseAnterior
+                    ? "text-slate-400"
+                    : variacao > 0
                     ? "text-emerald-400"
-                    : variacao <
-                      0
+                    : variacao < 0
                     ? "text-red-400"
-                    : "text-slate-500"
+                    : "text-slate-400"
                 }`}
               >
-                {variacao >
-                0
-                  ? "+"
-                  : ""}
-
-                {variacao
-                  .toFixed(
-                    1
-                  )
-                  .replace(
-                    ".",
-                    ","
-                  )}
-                %
+                {temBaseAnterior
+                  ? `${variacao > 0 ? "+" : ""}${variacao
+                      .toFixed(1)
+                      .replace(".", ",")}% vs. período anterior`
+                  : "Sem base anterior"}
               </span>
             )}
           </div>

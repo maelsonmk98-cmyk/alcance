@@ -263,20 +263,20 @@ function Indicador({
       : `${variacao > 0 ? "+" : ""}${percentual(variacao)}`;
 
   return (
-    <div className="flex min-h-[148px] min-w-0 flex-col rounded-2xl border border-[#1B3352] bg-[#0B1E35] px-3 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
-      <div className="flex min-w-0 items-center gap-2">
+    <div className="group relative flex min-h-[164px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[linear-gradient(145deg,#0C223D_0%,#08192F_100%)] px-3.5 py-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-colors duration-200 hover:border-[#315477]">
+      <div className="flex min-w-0 items-center gap-2.5">
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${cor}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/5 ${cor}`}
         >
           {icone}
         </div>
 
-        <p className="min-w-0 text-[10px] font-medium leading-tight text-slate-300">
+        <p className="min-w-0 text-[11px] font-medium leading-tight text-slate-200">
           {titulo}
         </p>
       </div>
 
-      <p className="mt-3 whitespace-nowrap text-[clamp(13px,1.1vw,21px)] font-bold tracking-tight text-white tabular-nums">
+      <p className="mt-4 whitespace-nowrap text-[clamp(15px,1.12vw,22px)] font-bold tracking-[-0.035em] text-white tabular-nums">
         {carregando ? "..." : valor}
       </p>
 
@@ -300,7 +300,7 @@ function Indicador({
           {carregando ? "..." : textoVariacao}
         </p>
 
-        <p className="mt-0.5 text-[9px] text-slate-500">
+        <p className="mt-1 text-[10px] text-slate-500">
           vs. período anterior
         </p>
       </div>
@@ -572,7 +572,7 @@ export default function VendasCards({
       )}
 
       {/* OITO CARDS COMPACTOS */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8">
         {cards.map((card) => (
           <Indicador
             key={card.titulo}
@@ -583,14 +583,14 @@ export default function VendasCards({
       </div>
 
       {/* DETALHAMENTO DOS DESCONTOS */}
-      <div className="rounded-xl border border-[#1B3352] bg-[#0B1E35]">
+      <div className="rounded-xl border border-[#1B3451] bg-[#0B2039]">
         <button
           type="button"
           onClick={() =>
             setMostrarDetalhes((valor) => !valor)
           }
           aria-expanded={mostrarDetalhes}
-          className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-300"
+          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-slate-300 transition-colors hover:text-white"
         >
           <span>
             Conferir descontos e Receita Líquida
