@@ -245,66 +245,61 @@ function Indicador({
   detalhe,
   carregando,
 }: CardProps) {
-  const variacao =
-    anterior !== 0
-      ? ((atual - anterior) / Math.abs(anterior)) * 100
-      : null;
+  const variacao = anterior !== 0
+    ? ((atual - anterior) / Math.abs(anterior)) * 100
+    : null;
 
-  const SubIcon =
-    variacao === null || Math.abs(variacao) < 0.005
-      ? Minus
-      : variacao > 0
-      ? TrendingUp
-      : TrendingDown;
+  const SubIcon = variacao === null || Math.abs(variacao) < 0.005
+    ? Minus
+    : variacao > 0 ? TrendingUp : TrendingDown;
 
-  const textoVariacao =
-    variacao === null
-      ? "Sem base anterior"
-      : `${variacao > 0 ? "+" : ""}${percentual(variacao)}`;
+  const textoVariacao = variacao === null
+    ? "Sem base anterior"
+    : `${variacao > 0 ? "+" : ""}${percentual(variacao)}`;
+
+  const corVariacao = variacao === null
+    ? "text-slate-400"
+    : variacao > 0 ? "text-emerald-400"
+    : variacao < 0 ? "text-rose-400"
+    : "text-slate-400";
 
   return (
-    <div className="group relative flex min-h-[164px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[linear-gradient(145deg,#0C223D_0%,#08192F_100%)] px-3.5 py-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-colors duration-200 hover:border-[#315477]">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/5 ${cor}`}
-        >
+    <article className="group relative flex h-[156px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1D3857] bg-[linear-gradient(145deg,#0D223B_0%,#07172B_100%)] px-3.5 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.17)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#345A7B]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/[0.025] to-transparent" />
+      <div className="relative flex min-w-0 items-center gap-2.5">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/5 ${cor}`}>
           {icone}
         </div>
-
-        <p className="min-w-0 text-[11px] font-medium leading-tight text-slate-200">
+        <p className="min-w-0 text-[11px] font-medium leading-[1.25] text-slate-200">
           {titulo}
         </p>
       </div>
 
-      <p className="mt-4 whitespace-nowrap text-[clamp(15px,1.12vw,22px)] font-bold tracking-[-0.035em] text-white tabular-nums">
+      <p className="relative mt-2.5 truncate text-[clamp(15px,1.12vw,22px)] font-bold tracking-[-0.035em] text-white tabular-nums" title={carregando ? undefined : valor}>
         {carregando ? "..." : valor}
       </p>
 
       {detalhe && (
-        <p className="mt-1 text-[9px] leading-snug text-slate-400">
+        <p className="relative mt-0.5 line-clamp-2 text-[9px] leading-[1.3] text-slate-400" title={detalhe}>
           {carregando ? "..." : detalhe}
         </p>
       )}
 
-      <div className="mt-auto pt-3">
-        <p
-          className={`flex items-center gap-1 text-[10px] font-semibold ${
-            variacao === null
-              ? "text-slate-400"
-              : variacao >= 0
-              ? "text-emerald-400"
-              : "text-red-400"
-          }`}
-        >
-          <SubIcon size={12} />
-          {carregando ? "..." : textoVariacao}
-        </p>
-
-        <p className="mt-1 text-[10px] text-slate-500">
-          vs. período anterior
-        </p>
+      <div className="relative mt-auto flex items-end justify-between gap-1 pt-1.5">
+        <div className="min-w-0">
+          <p className={`flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold ${corVariacao}`}>
+            <SubIcon size={12} className="shrink-0" />
+            {carregando ? "..." : textoVariacao}
+          </p>
+          <p className="mt-0.5 text-[9px] text-slate-500">vs. período anterior</p>
+        </div>
+        <div aria-hidden="true" className={`flex h-7 shrink-0 items-end gap-[3px] opacity-65 ${cor.split(" ").find(c => c.startsWith("text-")) ?? "text-orange-400"}`}>
+          {[9, 16, 12, 23].map((altura, i) => (
+            <span key={i} className="w-[4px] rounded-t-[2px] bg-current" style={{ height: `${altura}px` }} />
+          ))}
+        </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -572,7 +567,7 @@ export default function VendasCards({
       )}
 
       {/* OITO CARDS COMPACTOS */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 2xl:grid-cols-8">
         {cards.map((card) => (
           <Indicador
             key={card.titulo}
@@ -590,7 +585,7 @@ export default function VendasCards({
             setMostrarDetalhes((valor) => !valor)
           }
           aria-expanded={mostrarDetalhes}
-          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-slate-300 transition-colors hover:text-white"
+          className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-xs font-semibold text-slate-300 transition-colors hover:text-white"
         >
           <span>
             Conferir descontos e Receita Líquida
