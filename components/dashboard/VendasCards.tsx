@@ -10,8 +10,8 @@ import {
   BarChart3,
   Wallet,
   Percent,
-  ReceiptText,
-  CircleDollarSign,
+  Receipt,
+  Target,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -21,6 +21,12 @@ type Venda = {
   faturamento: number | null;
   custo_total: number | null;
   lucro: number | null;
+  custo_unitario: number | null;
+  comissao: number | null;
+  frete: number | null;
+  promocao: number | null;
+  tarifa_fixa: number | null;
+  acos: number | null;
 };
 
 type Props = {
@@ -31,6 +37,10 @@ type Props = {
 type Resumo = {
   quantidade: number;
   faturamento: number;
+  receitaLiquida: number;
+  valorInvestido: number;
+  investimentoProdutos: number;
+  investimentoAds: number;
   custo: number;
   lucro: number;
   roi: number;
@@ -240,7 +250,7 @@ export default function VendasCards({
         await supabase
           .from("vendas")
           .select(
-            "data_venda, quantidade, faturamento, custo_total, lucro"
+            "data_venda, quantidade, faturamento, custo_total, lucro, custo_unitario, comissao, frete, promocao, tarifa_fixa, acos"
           )
           .eq(
             "user_id",
@@ -399,6 +409,29 @@ export default function VendasCards({
         0
       );
 
+    // Receita líquida: descontos e taxas definidos para o indicador.
+    // O lucro e o ROI existentes continuam com suas regras originais.
+    const receitaLiquida = vendas.reduce((total, venda) => {
+      return total + Number(venda.faturamento ?? 0)
+        - Number(venda.promocao ?? 0)
+        - Number(venda.comissao ?? 0)
+        - Number(venda.frete ?? 0)
+        - Number(venda.tarifa_fixa ?? 0);
+    }, 0);
+
+    // O custo unitário é multiplicado pela quantidade de cada venda.
+    const investimentoProdutos = vendas.reduce((total, venda) => {
+      return total + Number(venda.custo_unitario ?? 0) * Number(venda.quantidade ?? 0);
+    }, 0);
+
+    // ACOS armazenado como percentual (ex.: 5 = 5%).
+    // Calculamos Ads por venda, sem aplicar uma média de ACOS ao total.
+    const investimentoAds = vendas.reduce((total, venda) => {
+      return total + Number(venda.faturamento ?? 0) * Number(venda.acos ?? 0) / 100;
+    }, 0);
+
+    const valorInvestido = investimentoProdutos + investimentoAds;
+
     const roi =
       custo > 0
         ? (lucro / custo) * 100
@@ -414,6 +447,10 @@ export default function VendasCards({
     return {
       quantidade,
       faturamento,
+      receitaLiquida,
+      valorInvestido,
+      investimentoProdutos,
+      investimentoAds,
       custo,
       lucro,
       roi,
@@ -528,25 +565,25 @@ export default function VendasCards({
 
     {
       title: "Receita Líquida",
-      // A tabela vendas ainda não fornece promoções, tarifas e frete.
-      // Não estimar a receita líquida usando faturamento ou lucro.
-      value: "—",
-      variation: 0,
-      icon: ReceiptText,
+      value: formatarMoeda(atual.receitaLiquida),
+      variation: calcularVariacao(atual.receitaLiquida, anterior.receitaLiquida),
+      icon: Receipt,
       iconBg: "bg-violet-500/20",
       iconColor: "text-violet-400",
       cardGlow: "from-violet-500/[0.12]",
     },
     {
       title: "Valor Investido",
-      // Requer custo de aquisição dos produtos e investimento em Ads.
-      // Não confundir custo_total com investimento sem validar sua composição.
-      value: "—",
-      variation: 0,
-      icon: CircleDollarSign,
+      value: formatarMoeda(atual.valorInvestido),
+      variation: calcularVariacao(atual.valorInvestido, anterior.valorInvestido),
+      icon: Target,
       iconBg: "bg-rose-500/20",
       iconColor: "text-rose-400",
       cardGlow: "from-rose-500/[0.12]",
+      detail: {
+        produtos: formatarMoeda(atual.investimentoProdutos),
+        ads: formatarMoeda(atual.investimentoAds),
+      },
     },
     {
       title:
@@ -688,7 +725,7 @@ export default function VendasCards({
             className="
               group
               relative
-              h-[126px]
+              h-[142px]
               overflow-hidden
               rounded-[13px]
               border
@@ -744,17 +781,30 @@ export default function VendasCards({
                   />
                 </div>
 
-                <p className="truncate text-[10px] font-medium text-slate-400">
+                <p className="min-w-0 truncate text-[10px] font-medium text-slate-400">
                   {card.title}
                 </p>
               </div>
 
               {/* Valor */}
-              <h2 className="mt-2 truncate text-[20px] font-bold leading-none tracking-[-0.04em] text-white">
-                {carregando && card.value !== "—"
+              <h2 className="mt-2 truncate text-[clamp(14px,1.2vw,20px)] font-bold leading-none tracking-[-0.04em] text-white">
+                {carregando
                   ? "..."
                   : card.value}
               </h2>
+
+              {"detail" in card && card.detail && (
+                <div className="mt-1 space-y-0.5 text-[9px] text-slate-400">
+                  <div className="flex justify-between gap-1">
+                    <span>Produtos</span>
+                    <span className="text-slate-200">{carregando ? "..." : card.detail.produtos}</span>
+                  </div>
+                  <div className="flex justify-between gap-1">
+                    <span>Ads</span>
+                    <span className="text-slate-200">{carregando ? "..." : card.detail.ads}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Comparação */}
               <div className="mt-auto">
@@ -785,9 +835,7 @@ export default function VendasCards({
                         : "text-slate-500"
                     }`}
                   >
-                    {card.value === "—"
-                      ? "Indisponível"
-                      : carregando
+                    {carregando
                       ? "..."
                       : formatarVariacao(
                           card.variation
@@ -796,9 +844,7 @@ export default function VendasCards({
                 </div>
 
                 <p className="mt-0.5 text-[8px] text-slate-600">
-                  {card.value === "—"
-                    ? "Aguardando dados financeiros"
-                    : "vs. período anterior"}
+                  vs. período anterior
                 </p>
               </div>
             </div>
