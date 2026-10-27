@@ -10,6 +10,8 @@ import {
   BarChart3,
   Wallet,
   Percent,
+  ReceiptText,
+  CircleDollarSign,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -525,6 +527,28 @@ export default function VendasCards({
     },
 
     {
+      title: "Receita Líquida",
+      // A tabela vendas ainda não fornece promoções, tarifas e frete.
+      // Não estimar a receita líquida usando faturamento ou lucro.
+      value: "—",
+      variation: 0,
+      icon: ReceiptText,
+      iconBg: "bg-violet-500/20",
+      iconColor: "text-violet-400",
+      cardGlow: "from-violet-500/[0.12]",
+    },
+    {
+      title: "Valor Investido",
+      // Requer custo de aquisição dos produtos e investimento em Ads.
+      // Não confundir custo_total com investimento sem validar sua composição.
+      value: "—",
+      variation: 0,
+      icon: CircleDollarSign,
+      iconBg: "bg-rose-500/20",
+      iconColor: "text-rose-400",
+      cardGlow: "from-rose-500/[0.12]",
+    },
+    {
       title:
         "Custo das Vendas",
 
@@ -647,7 +671,7 @@ export default function VendasCards({
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
       {cards.map((card) => {
         const Icon =
           card.icon;
@@ -670,7 +694,7 @@ export default function VendasCards({
               border
               border-[#243750]
               bg-[#0d1b2f]
-              px-4
+              px-3
               py-3
               shadow-[0_8px_24px_rgba(0,0,0,0.16)]
               transition-all
@@ -727,7 +751,7 @@ export default function VendasCards({
 
               {/* Valor */}
               <h2 className="mt-2 truncate text-[20px] font-bold leading-none tracking-[-0.04em] text-white">
-                {carregando
+                {carregando && card.value !== "—"
                   ? "..."
                   : card.value}
               </h2>
@@ -761,7 +785,9 @@ export default function VendasCards({
                         : "text-slate-500"
                     }`}
                   >
-                    {carregando
+                    {card.value === "—"
+                      ? "Indisponível"
+                      : carregando
                       ? "..."
                       : formatarVariacao(
                           card.variation
@@ -770,7 +796,9 @@ export default function VendasCards({
                 </div>
 
                 <p className="mt-0.5 text-[8px] text-slate-600">
-                  vs. período anterior
+                  {card.value === "—"
+                    ? "Aguardando dados financeiros"
+                    : "vs. período anterior"}
                 </p>
               </div>
             </div>
