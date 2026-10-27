@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ShoppingCart, DollarSign, TrendingUp, TrendingDown, Minus,
-  BarChart3, Wallet, Percent, Receipt, Target, ChevronDown,
+  BarChart3, Wallet, Percent, Receipt, Target,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -116,24 +116,36 @@ type CardProps = {
 };
 
 function Indicador({ titulo, valor, anterior, atual, icone, cor, detalhe, carregando }: CardProps) {
-  const variacao = anterior !== 0 ? (atual - anterior) / Math.abs(anterior) * 100 : null;
+  const variacao = anterior !== 0 ? ((atual - anterior) / Math.abs(anterior)) * 100 : null;
   const SubIcon = variacao === null || Math.abs(variacao) < 0.005
     ? Minus : variacao > 0 ? TrendingUp : TrendingDown;
   const textoVariacao = variacao === null
     ? "Sem base anterior" : `${variacao > 0 ? "+" : ""}${percentual(variacao)}`;
+
   return (
-    <div className="min-w-0 rounded-2xl border border-[#1B3352] bg-[#0B1E35] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
-      <div className="flex items-start justify-between gap-2">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cor}`}>{icone}</div>
-        <span className="flex items-center gap-1 text-[10px] text-slate-400">
-          <SubIcon size={13} />{carregando ? "..." : textoVariacao}
-        </span>
+    <div className="flex min-w-0 min-h-[148px] flex-col rounded-2xl border border-[#1B3352] bg-[#0B1E35] px-3 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${cor}`}>
+          {icone}
+        </div>
+        <p className="min-w-0 text-[10px] font-medium leading-tight text-slate-300">{titulo}</p>
       </div>
-      <p className="mt-4 text-[11px] font-medium text-slate-400">{titulo}</p>
-      <p className="mt-1 break-words text-[23px] font-bold tracking-tight text-white">
+
+      <p className="mt-3 whitespace-nowrap text-[clamp(13px,1.1vw,21px)] font-bold tracking-tight text-white tabular-nums">
         {carregando ? "..." : valor}
       </p>
-      {detalhe && <p className="mt-2 text-[10px] leading-relaxed text-slate-400">{detalhe}</p>}
+
+      {detalhe && (
+        <p className="mt-1 text-[9px] leading-snug text-slate-400">{carregando ? "..." : detalhe}</p>
+      )}
+
+      <div className="mt-auto pt-3">
+        <p className={`flex items-center gap-1 text-[10px] font-semibold ${variacao === null ? "text-slate-400" : variacao >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+          <SubIcon size={12} />
+          {carregando ? "..." : textoVariacao}
+        </p>
+        <p className="mt-0.5 text-[9px] text-slate-500">vs. período anterior</p>
+      </div>
     </div>
   );
 }
@@ -143,7 +155,6 @@ export default function VendasCards({ dataInicio, dataFim }: Props) {
   const [vendasAnteriores, setVendasAnteriores] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [mostrarDetalhes, setMostrarDetalhes] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -225,45 +236,16 @@ export default function VendasCards({ dataInicio, dataFim }: Props) {
   ];
 
   return (
-    <section className="space-y-3">
-      {erro && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">Erro ao carregar indicadores: {erro}</div>}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map(card => <Indicador key={card.titulo} {...card} carregando={carregando} />)}
-      </div>
-
-      {/* Auditoria visível para localizar a origem de valores incorretos. */}
-      <div className="rounded-xl border border-[#1B3352] bg-[#0B1E35]">
-        <button type="button" onClick={() => setMostrarDetalhes(v => !v)}
-          aria-expanded={mostrarDetalhes}
-          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-slate-300">
-          Conferir cálculo da Receita Líquida ({vendasAtuais.length} vendas no período)
-          <ChevronDown size={16} className={mostrarDetalhes ? "rotate-180" : ""} />
-        </button>
-        {mostrarDetalhes && (
-          <div className="space-y-2 border-t border-[#1B3352] px-4 py-4 text-xs text-slate-300">
-            <div className="flex justify-between"><span>Faturamento</span><strong>{moeda(atual.faturamento)}</strong></div>
-            <div className="flex justify-between"><span>Comissões (%)</span><span>− {moeda(atual.comissoes)}</span></div>
-            <div className="flex justify-between"><span>Promoções (%)</span><span>− {moeda(atual.promocoes)}</span></div>
-            <div className="flex justify-between"><span>Frete</span><span>− {moeda(atual.fretes)}</span></div>
-            <div className="flex justify-between"><span>Tarifa fixa</span><span>− {moeda(atual.tarifasFixas)}</span></div>
-            <div className="flex justify-between border-t border-[#1B3352] pt-2 font-bold text-white"><span>Receita Líquida</span><span>{moeda(atual.receitaLiquida)}</span></div>
-            <p className="pt-1 text-[10px] text-slate-500">Comissão e promoção: percentual do faturamento de cada venda. Frete e tarifa: valor por unidade. Não inclui custo do produto, Ads ou impostos.</p>
-            {vendasAtuais.length > 0 && (
-              <div className="overflow-x-auto pt-2">
-                <table className="w-full min-w-[650px] text-left text-[10px]">
-                  <thead><tr className="border-b border-[#1B3352] text-slate-400">
-                    <th className="py-2 pr-3">ID</th><th className="pr-3">Faturamento</th><th className="pr-3">Comissão %</th><th className="pr-3">Promoção %</th><th className="pr-3">Frete/un.</th><th>Tarifa/un.</th>
-                  </tr></thead>
-                  <tbody>{vendasAtuais.map(v => <tr key={v.id} className="border-b border-[#1B3352]/60">
-                    <td className="py-2 pr-3">{v.id}</td><td className="pr-3">{moeda(numero(v.faturamento))}</td>
-                    <td className="pr-3">{percentual(numero(v.comissao))}</td><td className="pr-3">{percentual(numero(v.promocao))}</td>
-                    <td className="pr-3">{moeda(numero(v.frete))}</td><td>{moeda(numero(v.tarifa_fixa))}</td>
-                  </tr>)}</tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+    <section className="space-y-2">
+      {erro && (
+        <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          Erro ao carregar indicadores: {erro}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+        {cards.map(card => (
+          <Indicador key={card.titulo} {...card} carregando={carregando} />
+        ))}
       </div>
     </section>
   );
