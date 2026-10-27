@@ -35,6 +35,7 @@ type Produto = {
 type Venda = {
   id: number;
   data_venda: string;
+  canal_venda: string | null;
   produto_id: number | null;
   sku: string | null;
   nome_produto: string | null;
@@ -54,6 +55,7 @@ export default function VendasPage() {
 
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("1");
+  const [canalVenda, setCanalVenda] = useState("");
 
   const [precoVenda, setPrecoVenda] = useState("");
   const [custoUnitario, setCustoUnitario] = useState("");
@@ -161,6 +163,7 @@ export default function VendasPage() {
         `
         id,
         data_venda,
+        canal_venda,
         produto_id,
         sku,
         nome_produto,
@@ -411,6 +414,11 @@ export default function VendasPage() {
       return;
     }
 
+    if (!canalVenda) {
+      setErro("Selecione o canal de venda.");
+      return;
+    }
+
     setSalvando(true);
 
     try {
@@ -460,6 +468,8 @@ export default function VendasPage() {
 
             p_tarifa_fixa:
               numero(tarifaFixa),
+
+            p_canal_venda: canalVenda,
           }
         );
 
@@ -483,6 +493,7 @@ export default function VendasPage() {
 
       setProdutoId("");
       setQuantidade("1");
+      setCanalVenda("");
 
       setPrecoVenda("");
       setCustoUnitario("");
@@ -895,6 +906,26 @@ export default function VendasPage() {
                     </select>
                   </div>
 
+                  <div>
+                    <label htmlFor="canal-venda" className="mb-2 block text-[10px] font-semibold text-slate-400">
+                      Canal de venda
+                    </label>
+                    <select
+                      id="canal-venda"
+                      required
+                      value={canalVenda}
+                      onChange={(e) => setCanalVenda(e.target.value)}
+                      className={classeInput}
+                    >
+                      <option value="">Selecione o marketplace</option>
+                      <option value="Mercado Livre">Mercado Livre</option>
+                      <option value="Shopee">Shopee</option>
+                      <option value="Amazon">Amazon</option>
+                      <option value="Site próprio">Site próprio</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+
                   <Campo
                     label="Quantidade"
                     value={quantidade}
@@ -1245,11 +1276,15 @@ export default function VendasPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1050px]">
+                <table className="w-full min-w-[1180px]">
                   <thead>
                     <tr className="border-b border-[#17304D] bg-[#0D223B] text-left">
                       <th className="px-6 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                         Data
+                      </th>
+
+                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                        Canal
                       </th>
 
                       <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
@@ -1315,6 +1350,10 @@ export default function VendasPage() {
                               {formatarData(
                                 venda.data_venda
                               )}
+                            </td>
+
+                            <td className="px-4 py-4 text-slate-300">
+                              {venda.canal_venda || "Não informado"}
                             </td>
 
                             <td className="px-4 py-4">
