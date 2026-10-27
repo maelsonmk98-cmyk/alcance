@@ -112,7 +112,7 @@ export default function DashboardPage() {
           </div>
 
           {/* GRÁFICOS PRINCIPAIS */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+<div className="grid grid-cols-1 gap-2.5 xl:grid-cols-[1.72fr_1fr]">
 
             {/* FATURAMENTO */}
             <div className="min-w-0 [&>div]:h-[285px]">
