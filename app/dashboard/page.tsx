@@ -74,7 +74,7 @@ export default function DashboardPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-[23px] font-bold leading-tight tracking-[-0.035em] text-white">
-                  Dashboard de Vendas
+                 Dashboard de Vendas - TESTE 2026
                 </h1>
 
                 <span
