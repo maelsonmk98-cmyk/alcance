@@ -1,21 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
-  ShoppingCart,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  BarChart3,
-  Wallet,
-  Percent,
-  Receipt,
-  Target,
+  ShoppingCart, DollarSign, TrendingUp, TrendingDown, Minus,
+  BarChart3, Wallet, Percent, Receipt, Target, ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Venda = {
+  id: number;
   data_venda: string;
   quantidade: number | null;
   faturamento: number | null;
@@ -30,7 +24,6 @@ type Venda = {
 };
 
 type Props = { dataInicio?: string; dataFim?: string };
-
 type Resumo = {
   quantidade: number;
   faturamento: number;
@@ -38,21 +31,26 @@ type Resumo = {
   valorInvestido: number;
   investimentoProdutos: number;
   investimentoAds: number;
+  comissoes: number;
+  promocoes: number;
+  fretes: number;
+  tarifasFixas: number;
   custo: number;
   lucro: number;
   roi: number;
   margem: number;
 };
 
-const vazio: Resumo = {
+const vazio = (): Resumo => ({
   quantidade: 0, faturamento: 0, receitaLiquida: 0,
   valorInvestido: 0, investimentoProdutos: 0, investimentoAds: 0,
+  comissoes: 0, promocoes: 0, fretes: 0, tarifasFixas: 0,
   custo: 0, lucro: 0, roi: 0, margem: 0,
-};
+});
 
 function numero(valor: number | null | undefined): number {
-  const resultado = Number(valor ?? 0);
-  return Number.isFinite(resultado) ? resultado : 0;
+  const n = Number(valor ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function dataLocal(valor: string, fim = false): Date {
@@ -67,29 +65,33 @@ function resumoDasVendas(vendas: Venda[]): Resumo {
     const qtd = numero(venda.quantidade);
     const faturamento = numero(venda.faturamento);
 
-    // comissao, promocao e acos são porcentagens sobre o faturamento da venda.
+    // Campos comissao, promocao e acos são percentuais (14 = 14%).
     const comissaoReais = faturamento * numero(venda.comissao) / 100;
     const promocaoReais = faturamento * numero(venda.promocao) / 100;
     const adsReais = faturamento * numero(venda.acos) / 100;
 
-    // Na tela de registro, frete e tarifa fixa são valores por unidade.
+    // Valores monetários por unidade, como no formulário de vendas.
     const freteReais = numero(venda.frete) * qtd;
     const tarifaFixaReais = numero(venda.tarifa_fixa) * qtd;
     const produtosReais = numero(venda.custo_unitario) * qtd;
 
     acc.quantidade += qtd;
     acc.faturamento += faturamento;
-    acc.receitaLiquida += faturamento - comissaoReais - promocaoReais - freteReais - tarifaFixaReais;
+    acc.comissoes += comissaoReais;
+    acc.promocoes += promocaoReais;
+    acc.fretes += freteReais;
+    acc.tarifasFixas += tarifaFixaReais;
     acc.investimentoProdutos += produtosReais;
     acc.investimentoAds += adsReais;
     acc.custo += numero(venda.custo_total);
-    // O lucro já é calculado no banco e já inclui ACOS; não descontar Ads novamente.
+    // Lucro já registrado no banco; não subtrair Ads novamente.
     acc.lucro += numero(venda.lucro);
     return acc;
-  }, { ...vazio });
+  }, vazio());
 
+  total.receitaLiquida = total.faturamento - total.comissoes - total.promocoes
+    - total.fretes - total.tarifasFixas;
   total.valorInvestido = total.investimentoProdutos + total.investimentoAds;
-  // ROI sobre capital investido em produtos + Ads, conforme regra do Alcance.
   total.roi = total.valorInvestido > 0 ? total.lucro / total.valorInvestido * 100 : 0;
   total.margem = total.faturamento > 0 ? total.lucro / total.faturamento * 100 : 0;
   return total;
@@ -98,7 +100,6 @@ function resumoDasVendas(vendas: Venda[]): Resumo {
 function moeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
-
 function percentual(valor: number) {
   return `${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
@@ -108,7 +109,7 @@ type CardProps = {
   valor: string;
   anterior: number;
   atual: number;
-  icone: React.ReactNode;
+  icone: ReactNode;
   cor: string;
   detalhe?: string;
   carregando: boolean;
@@ -116,16 +117,22 @@ type CardProps = {
 
 function Indicador({ titulo, valor, anterior, atual, icone, cor, detalhe, carregando }: CardProps) {
   const variacao = anterior !== 0 ? (atual - anterior) / Math.abs(anterior) * 100 : null;
-  const SubIcon = variacao === null || Math.abs(variacao) < 0.005 ? Minus : variacao > 0 ? TrendingUp : TrendingDown;
-  const textoVariacao = variacao === null ? "Sem base anterior" : `${variacao > 0 ? "+" : ""}${percentual(variacao)}`;
+  const SubIcon = variacao === null || Math.abs(variacao) < 0.005
+    ? Minus : variacao > 0 ? TrendingUp : TrendingDown;
+  const textoVariacao = variacao === null
+    ? "Sem base anterior" : `${variacao > 0 ? "+" : ""}${percentual(variacao)}`;
   return (
     <div className="min-w-0 rounded-2xl border border-[#1B3352] bg-[#0B1E35] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
       <div className="flex items-start justify-between gap-2">
         <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cor}`}>{icone}</div>
-        <span className="flex items-center gap-1 text-[10px] text-slate-400"><SubIcon size={13} />{carregando ? "..." : textoVariacao}</span>
+        <span className="flex items-center gap-1 text-[10px] text-slate-400">
+          <SubIcon size={13} />{carregando ? "..." : textoVariacao}
+        </span>
       </div>
       <p className="mt-4 text-[11px] font-medium text-slate-400">{titulo}</p>
-      <p className="mt-1 break-words text-[23px] font-bold tracking-tight text-white">{carregando ? "..." : valor}</p>
+      <p className="mt-1 break-words text-[23px] font-bold tracking-tight text-white">
+        {carregando ? "..." : valor}
+      </p>
       {detalhe && <p className="mt-2 text-[10px] leading-relaxed text-slate-400">{detalhe}</p>}
     </div>
   );
@@ -136,6 +143,7 @@ export default function VendasCards({ dataInicio, dataFim }: Props) {
   const [vendasAnteriores, setVendasAnteriores] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [mostrarDetalhes, setMostrarDetalhes] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -160,19 +168,35 @@ export default function VendasCards({ dataInicio, dataFim }: Props) {
         const duracao = fimAtual.getTime() - inicioAtual.getTime() + 1;
         const fimAnterior = new Date(inicioAtual.getTime() - 1);
         const inicioAnterior = new Date(inicioAtual.getTime() - duracao);
-        const campos = "data_venda,quantidade,faturamento,custo_total,lucro,custo_unitario,comissao,frete,promocao,tarifa_fixa,acos";
+        const campos = "id,data_venda,quantidade,faturamento,custo_total,lucro,custo_unitario,comissao,frete,promocao,tarifa_fixa,acos";
 
-        const [atual, anterior] = await Promise.all([
-          supabase.from("vendas").select(campos).eq("user_id", auth.user.id)
-            .gte("data_venda", inicioAtual.toISOString()).lte("data_venda", fimAtual.toISOString()),
-          supabase.from("vendas").select(campos).eq("user_id", auth.user.id)
-            .gte("data_venda", inicioAnterior.toISOString()).lte("data_venda", fimAnterior.toISOString()),
+        // Paginação para não perder vendas quando o período tiver mais de 1000 linhas.
+        async function buscarTodas(inicio: Date, fim: Date): Promise<Venda[]> {
+          const todas: Venda[] = [];
+          const lote = 1000;
+          for (let pagina = 0; ; pagina++) {
+            const { data, error } = await supabase.from("vendas")
+              .select(campos)
+              .eq("user_id", auth.user!.id)
+              .gte("data_venda", inicio.toISOString())
+              .lte("data_venda", fim.toISOString())
+              .order("id", { ascending: true })
+              .range(pagina * lote, (pagina + 1) * lote - 1);
+            if (error) throw error;
+            const registros = (data ?? []) as unknown as Venda[];
+            todas.push(...registros);
+            if (registros.length < lote) break;
+          }
+          return todas;
+        }
+
+        const [atuais, anteriores] = await Promise.all([
+          buscarTodas(inicioAtual, fimAtual),
+          buscarTodas(inicioAnterior, fimAnterior),
         ]);
-        if (atual.error) throw atual.error;
-        if (anterior.error) throw anterior.error;
         if (!ativo) return;
-        setVendasAtuais((atual.data ?? []) as unknown as Venda[]);
-        setVendasAnteriores((anterior.data ?? []) as unknown as Venda[]);
+        setVendasAtuais(atuais);
+        setVendasAnteriores(anteriores);
       } catch (e) {
         if (!ativo) return;
         setErro(e instanceof Error ? e.message : "Não foi possível carregar os indicadores.");
@@ -186,10 +210,10 @@ export default function VendasCards({ dataInicio, dataFim }: Props) {
     return () => { ativo = false; };
   }, [dataInicio, dataFim]);
 
-  const atual = resumoDasVendas(vendasAtuais);
-  const anterior = resumoDasVendas(vendasAnteriores);
+  const atual = useMemo(() => resumoDasVendas(vendasAtuais), [vendasAtuais]);
+  const anterior = useMemo(() => resumoDasVendas(vendasAnteriores), [vendasAnteriores]);
 
-  const cards = [
+  const cards: Omit<CardProps, "carregando">[] = [
     { titulo: "Produtos Vendidos", valor: atual.quantidade.toLocaleString("pt-BR"), atual: atual.quantidade, anterior: anterior.quantidade, icone: <ShoppingCart size={20} />, cor: "bg-blue-500/10 text-blue-400" },
     { titulo: "Faturamento", valor: moeda(atual.faturamento), atual: atual.faturamento, anterior: anterior.faturamento, icone: <DollarSign size={20} />, cor: "bg-violet-500/10 text-violet-400" },
     { titulo: "Receita Líquida", valor: moeda(atual.receitaLiquida), atual: atual.receitaLiquida, anterior: anterior.receitaLiquida, icone: <Receipt size={20} />, cor: "bg-cyan-500/10 text-cyan-400" },
@@ -205,6 +229,41 @@ export default function VendasCards({ dataInicio, dataFim }: Props) {
       {erro && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">Erro ao carregar indicadores: {erro}</div>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map(card => <Indicador key={card.titulo} {...card} carregando={carregando} />)}
+      </div>
+
+      {/* Auditoria visível para localizar a origem de valores incorretos. */}
+      <div className="rounded-xl border border-[#1B3352] bg-[#0B1E35]">
+        <button type="button" onClick={() => setMostrarDetalhes(v => !v)}
+          aria-expanded={mostrarDetalhes}
+          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-slate-300">
+          Conferir cálculo da Receita Líquida ({vendasAtuais.length} vendas no período)
+          <ChevronDown size={16} className={mostrarDetalhes ? "rotate-180" : ""} />
+        </button>
+        {mostrarDetalhes && (
+          <div className="space-y-2 border-t border-[#1B3352] px-4 py-4 text-xs text-slate-300">
+            <div className="flex justify-between"><span>Faturamento</span><strong>{moeda(atual.faturamento)}</strong></div>
+            <div className="flex justify-between"><span>Comissões (%)</span><span>− {moeda(atual.comissoes)}</span></div>
+            <div className="flex justify-between"><span>Promoções (%)</span><span>− {moeda(atual.promocoes)}</span></div>
+            <div className="flex justify-between"><span>Frete</span><span>− {moeda(atual.fretes)}</span></div>
+            <div className="flex justify-between"><span>Tarifa fixa</span><span>− {moeda(atual.tarifasFixas)}</span></div>
+            <div className="flex justify-between border-t border-[#1B3352] pt-2 font-bold text-white"><span>Receita Líquida</span><span>{moeda(atual.receitaLiquida)}</span></div>
+            <p className="pt-1 text-[10px] text-slate-500">Comissão e promoção: percentual do faturamento de cada venda. Frete e tarifa: valor por unidade. Não inclui custo do produto, Ads ou impostos.</p>
+            {vendasAtuais.length > 0 && (
+              <div className="overflow-x-auto pt-2">
+                <table className="w-full min-w-[650px] text-left text-[10px]">
+                  <thead><tr className="border-b border-[#1B3352] text-slate-400">
+                    <th className="py-2 pr-3">ID</th><th className="pr-3">Faturamento</th><th className="pr-3">Comissão %</th><th className="pr-3">Promoção %</th><th className="pr-3">Frete/un.</th><th>Tarifa/un.</th>
+                  </tr></thead>
+                  <tbody>{vendasAtuais.map(v => <tr key={v.id} className="border-b border-[#1B3352]/60">
+                    <td className="py-2 pr-3">{v.id}</td><td className="pr-3">{moeda(numero(v.faturamento))}</td>
+                    <td className="pr-3">{percentual(numero(v.comissao))}</td><td className="pr-3">{percentual(numero(v.promocao))}</td>
+                    <td className="pr-3">{moeda(numero(v.frete))}</td><td>{moeda(numero(v.tarifa_fixa))}</td>
+                  </tr>)}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );
