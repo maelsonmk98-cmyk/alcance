@@ -2,277 +2,356 @@
 
 import { useEffect, useState } from "react";
 import {
-  CalendarDays,
+  ShoppingCart,
   DollarSign,
-  Package,
-  Plus,
   TrendingUp,
-  Trash2,
-  Wallet,
-  RefreshCw,
+  TrendingDown,
+  Minus,
   BarChart3,
+  Wallet,
+  Percent,
+  Receipt,
+  Target,
 } from "lucide-react";
-
-import MainLayout from "@/components/layout/MainLayout";
 import { supabase } from "@/lib/supabase";
 
-type Produto = {
-  id: number;
-  sku: string | null;
-  nome: string | null;
-  custo: number | null;
-  preco_venda: number | null;
-  estoque: number | null;
-  comissao: number | null;
-  impostos: number | null;
-  embalagem: number | null;
-  frete: number | null;
-  outras_despesas: number | null;
-  acos: number | null;
-  promocao: number | null;
-};
-
 type Venda = {
-  id: number;
   data_venda: string;
-  produto_id: number | null;
-  sku: string | null;
-  nome_produto: string | null;
-  quantidade: number;
-  preco_venda: number;
-  custo_unitario: number;
-  faturamento: number;
-  custo_total: number;
-  lucro: number;
-  margem: number;
-  roi: number;
+  quantidade: number | null;
+  faturamento: number | null;
+  custo_total: number | null;
+  lucro: number | null;
+  custo_unitario: number | null;
+  comissao: number | null;
+  frete: number | null;
+  promocao: number | null;
+  tarifa_fixa: number | null;
+  acos: number | null;
 };
 
-export default function VendasPage() {
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [vendas, setVendas] = useState<Venda[]>([]);
+type Props = {
+  dataInicio?: string;
+  dataFim?: string;
+};
 
-  const [produtoId, setProdutoId] = useState("");
-  const [quantidade, setQuantidade] = useState("1");
+type Resumo = {
+  quantidade: number;
+  faturamento: number;
+  receitaLiquida: number;
+  valorInvestido: number;
+  investimentoProdutos: number;
+  investimentoAds: number;
+  custo: number;
+  lucro: number;
+  roi: number;
+  margem: number;
+};
 
-  const [precoVenda, setPrecoVenda] = useState("");
-  const [custoUnitario, setCustoUnitario] = useState("");
+function criarDataLocal(
+  valor: string,
+  finalDoDia = false
+) {
+  const [ano, mes, dia] = valor
+    .split("-")
+    .map(Number);
 
-  const [comissao, setComissao] = useState("");
-  const [impostos, setImpostos] = useState("");
-  const [acos, setAcos] = useState("");
-  const [promocao, setPromocao] = useState("");
-
-  const [frete, setFrete] = useState("");
-  const [embalagem, setEmbalagem] = useState("");
-  const [outrasDespesas, setOutrasDespesas] = useState("");
-
-  const [tarifaFixa, setTarifaFixa] = useState("6.50");
-
-  const [dataVenda, setDataVenda] = useState(
-    new Date().toISOString().split("T")[0]
+  const data = new Date(
+    ano,
+    mes - 1,
+    dia
   );
 
-  const [carregando, setCarregando] = useState(true);
-  const [salvando, setSalvando] = useState(false);
+  if (finalDoDia) {
+    data.setHours(23, 59, 59, 999);
+  } else {
+    data.setHours(0, 0, 0, 0);
+  }
 
-  const [excluindoId, setExcluindoId] = useState<
-    number | null
-  >(null);
+  return data;
+}
 
-  const [mensagem, setMensagem] = useState("");
-  const [erro, setErro] = useState("");
+function formatarDataInput(data: Date) {
+  const ano = data.getFullYear();
+
+  const mes = String(
+    data.getMonth() + 1
+  ).padStart(2, "0");
+
+  const dia = String(
+    data.getDate()
+  ).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+export default function VendasCards({
+  dataInicio,
+  dataFim,
+}: Props) {
+  const [vendasAtuais, setVendasAtuais] =
+    useState<Venda[]>([]);
+
+  const [
+    vendasAnteriores,
+    setVendasAnteriores,
+  ] = useState<Venda[]>([]);
+
+  const [carregando, setCarregando] =
+    useState(true);
 
   useEffect(() => {
-    carregarDados();
-  }, []);
+    carregarVendas();
+  }, [dataInicio, dataFim]);
 
-  function numero(valor: string) {
-    const convertido = Number(
-      valor.replace(",", ".")
-    );
-
-    return Number.isFinite(convertido)
-      ? convertido
-      : 0;
-  }
-
-  async function carregarDados() {
+  async function carregarVendas() {
     setCarregando(true);
-    setErro("");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      setErro("Usuário não autenticado.");
+      if (!user) {
+        setVendasAtuais([]);
+        setVendasAnteriores([]);
+        return;
+      }
+
+      /*
+       * ============================================================
+       * PERÍODO ATUAL
+       * ============================================================
+       */
+
+      const hoje = new Date();
+
+      const fimAtual = dataFim
+        ? criarDataLocal(
+            dataFim,
+            true
+          )
+        : new Date(hoje);
+
+      if (!dataFim) {
+        fimAtual.setHours(
+          23,
+          59,
+          59,
+          999
+        );
+      }
+
+      const inicioAtual = dataInicio
+        ? criarDataLocal(
+            dataInicio
+          )
+        : (() => {
+            const data =
+              new Date(hoje);
+
+            data.setHours(
+              0,
+              0,
+              0,
+              0
+            );
+
+            data.setDate(
+              data.getDate() - 6
+            );
+
+            return data;
+          })();
+
+      /*
+       * Proteção para intervalo invertido
+       */
+
+      if (inicioAtual > fimAtual) {
+        console.error(
+          "A data inicial não pode ser maior que a data final."
+        );
+
+        setVendasAtuais([]);
+        setVendasAnteriores([]);
+        return;
+      }
+
+      /*
+       * ============================================================
+       * QUANTIDADE DE DIAS
+       * ============================================================
+       */
+
+      const inicioSomenteData =
+        new Date(inicioAtual);
+
+      inicioSomenteData.setHours(
+        0,
+        0,
+        0,
+        0
+      );
+
+      const fimSomenteData =
+        new Date(fimAtual);
+
+      fimSomenteData.setHours(
+        0,
+        0,
+        0,
+        0
+      );
+
+      const diferencaMs =
+        fimSomenteData.getTime() -
+        inicioSomenteData.getTime();
+
+      const quantidadeDias =
+        Math.floor(
+          diferencaMs /
+            (1000 * 60 * 60 * 24)
+        ) + 1;
+
+      /*
+       * ============================================================
+       * PERÍODO ANTERIOR
+       *
+       * Exemplo:
+       *
+       * Atual:
+       * 06/08 até 12/08 = 7 dias
+       *
+       * Anterior:
+       * 30/07 até 05/08 = 7 dias
+       * ============================================================
+       */
+
+      const fimAnterior =
+        new Date(inicioAtual);
+
+      fimAnterior.setMilliseconds(-1);
+
+      const inicioAnterior =
+        new Date(inicioAtual);
+
+      inicioAnterior.setDate(
+        inicioAnterior.getDate() -
+          quantidadeDias
+      );
+
+      /*
+       * ============================================================
+       * CONSULTA
+       * ============================================================
+       */
+
+      const { data, error } =
+        await supabase
+          .from("vendas")
+          .select(
+            "data_venda, quantidade, faturamento, custo_total, lucro, custo_unitario, comissao, frete, promocao, tarifa_fixa, acos"
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .gte(
+            "data_venda",
+            inicioAnterior.toISOString()
+          )
+          .lte(
+            "data_venda",
+            fimAtual.toISOString()
+          )
+          .order(
+            "data_venda",
+            {
+              ascending: true,
+            }
+          );
+
+      if (error) {
+        console.error(
+          "Erro ao carregar vendas:",
+          error
+        );
+
+        setVendasAtuais([]);
+        setVendasAnteriores([]);
+        return;
+      }
+
+      const todasVendas =
+        (data || []) as Venda[];
+
+      /*
+       * ============================================================
+       * SEPARA PERÍODO ATUAL
+       * ============================================================
+       */
+
+      const atuais =
+        todasVendas.filter(
+          (venda) => {
+            const dataVenda =
+              new Date(
+                venda.data_venda
+              );
+
+            return (
+              dataVenda >=
+                inicioAtual &&
+              dataVenda <=
+                fimAtual
+            );
+          }
+        );
+
+      /*
+       * ============================================================
+       * SEPARA PERÍODO ANTERIOR
+       * ============================================================
+       */
+
+      const anteriores =
+        todasVendas.filter(
+          (venda) => {
+            const dataVenda =
+              new Date(
+                venda.data_venda
+              );
+
+            return (
+              dataVenda >=
+                inicioAnterior &&
+              dataVenda <=
+                fimAnterior
+            );
+          }
+        );
+
+      setVendasAtuais(atuais);
+      setVendasAnteriores(
+        anteriores
+      );
+    } catch (error) {
+      console.error(
+        "Erro inesperado ao carregar vendas:",
+        error
+      );
+
+      setVendasAtuais([]);
+      setVendasAnteriores([]);
+    } finally {
       setCarregando(false);
-      return;
     }
-
-    const {
-      data: produtosData,
-      error: produtosError,
-    } = await supabase
-      .from("produtos")
-      .select(
-        `
-        id,
-        sku,
-        nome,
-        custo,
-        preco_venda,
-        estoque,
-        comissao,
-        impostos,
-        embalagem,
-        frete,
-        outras_despesas,
-        acos,
-        promocao
-        `
-      )
-      .eq("user_id", user.id)
-      .order("nome", {
-        ascending: true,
-      });
-
-    if (produtosError) {
-      console.error(
-        "Erro ao carregar produtos:",
-        produtosError
-      );
-
-      setErro(
-        "Não foi possível carregar os produtos."
-      );
-    } else {
-      setProdutos(produtosData || []);
-    }
-
-    const {
-      data: vendasData,
-      error: vendasError,
-    } = await supabase
-      .from("vendas")
-      .select(
-        `
-        id,
-        data_venda,
-        produto_id,
-        sku,
-        nome_produto,
-        quantidade,
-        preco_venda,
-        custo_unitario,
-        faturamento,
-        custo_total,
-        lucro,
-        margem,
-        roi
-        `
-      )
-      .eq("user_id", user.id)
-      .order("data_venda", {
-        ascending: false,
-      });
-
-    if (vendasError) {
-      console.error(
-        "Erro ao carregar vendas:",
-        vendasError
-      );
-
-      setErro(
-        "Não foi possível carregar as vendas."
-      );
-    } else {
-      setVendas(vendasData || []);
-    }
-
-    setCarregando(false);
-  }
-
-  const produtoSelecionado = produtos.find(
-    (produto) =>
-      produto.id.toString() === produtoId
-  );
-
-  function selecionarProduto(valor: string) {
-    setProdutoId(valor);
-
-    const produto = produtos.find(
-      (item) => item.id.toString() === valor
-    );
-
-    if (!produto) {
-      setPrecoVenda("");
-      setCustoUnitario("");
-
-      setComissao("");
-      setImpostos("");
-      setAcos("");
-      setPromocao("");
-
-      setFrete("");
-      setEmbalagem("");
-      setOutrasDespesas("");
-
-      setTarifaFixa("6.50");
-
-      return;
-    }
-
-    setPrecoVenda(
-      String(produto.preco_venda ?? 0)
-    );
-
-    setCustoUnitario(
-      String(produto.custo ?? 0)
-    );
-
-    setComissao(
-      String(produto.comissao ?? 0)
-    );
-
-    setImpostos(
-      String(produto.impostos ?? 0)
-    );
-
-    setAcos(
-      String(produto.acos ?? 0)
-    );
-
-    setPromocao(
-      String(produto.promocao ?? 0)
-    );
-
-    setFrete(
-      String(produto.frete ?? 0)
-    );
-
-    setEmbalagem(
-      String(produto.embalagem ?? 0)
-    );
-
-    setOutrasDespesas(
-      String(
-        produto.outras_despesas ?? 0
-      )
-    );
-
-    setTarifaFixa("6.50");
-
-    setMensagem("");
-    setErro("");
   }
 
   function formatarMoeda(
-    valor: number | null | undefined
+    valor: number
   ) {
-    return Number(valor ?? 0).toLocaleString(
+    return valor.toLocaleString(
       "pt-BR",
       {
         style: "currency",
@@ -281,1382 +360,502 @@ export default function VendasPage() {
     );
   }
 
-  function formatarData(data: string) {
-    return new Date(data).toLocaleDateString(
-      "pt-BR"
+  /*
+   * ============================================================
+   * RESUMO
+   * ============================================================
+   */
+
+  function calcularResumo(
+    vendas: Venda[]
+  ): Resumo {
+    const quantidade =
+      vendas.reduce(
+        (total, venda) =>
+          total +
+          Number(
+            venda.quantidade ?? 0
+          ),
+        0
+      );
+
+    const faturamento =
+      vendas.reduce(
+        (total, venda) =>
+          total +
+          Number(
+            venda.faturamento ?? 0
+          ),
+        0
+      );
+
+    const custo =
+      vendas.reduce(
+        (total, venda) =>
+          total +
+          Number(
+            venda.custo_total ?? 0
+          ),
+        0
+      );
+
+    const lucro =
+      vendas.reduce(
+        (total, venda) =>
+          total +
+          Number(
+            venda.lucro ?? 0
+          ),
+        0
+      );
+
+    // Comissão e promoção são percentuais por venda, não valores em reais.
+    // Frete e tarifa fixa são valores monetários por unidade, conforme
+    // a prévia do formulário de registro de vendas.
+    const receitaLiquida = vendas.reduce((total, venda) => {
+      const faturamentoVenda = Number(venda.faturamento ?? 0);
+      const quantidadeVenda = Number(venda.quantidade ?? 0);
+      const comissaoValor = faturamentoVenda * Number(venda.comissao ?? 0) / 100;
+      const promocaoValor = faturamentoVenda * Number(venda.promocao ?? 0) / 100;
+      const freteTotal = Number(venda.frete ?? 0) * quantidadeVenda;
+      const tarifaFixaTotal = Number(venda.tarifa_fixa ?? 0) * quantidadeVenda;
+
+      return total + faturamentoVenda - comissaoValor - promocaoValor
+        - freteTotal - tarifaFixaTotal;
+    }, 0);
+
+    // O custo unitário é multiplicado pela quantidade de cada venda.
+    const investimentoProdutos = vendas.reduce((total, venda) => {
+      return total + Number(venda.custo_unitario ?? 0) * Number(venda.quantidade ?? 0);
+    }, 0);
+
+    // ACOS armazenado como percentual (ex.: 5 = 5%).
+    // Calculamos Ads por venda, sem aplicar uma média de ACOS ao total.
+    const investimentoAds = vendas.reduce((total, venda) => {
+      return total + Number(venda.faturamento ?? 0) * Number(venda.acos ?? 0) / 100;
+    }, 0);
+
+    const valorInvestido = investimentoProdutos + investimentoAds;
+
+    const roi =
+      custo > 0
+        ? (lucro / custo) * 100
+        : 0;
+
+    const margem =
+      faturamento > 0
+        ? (lucro /
+            faturamento) *
+          100
+        : 0;
+
+    return {
+      quantidade,
+      faturamento,
+      receitaLiquida,
+      valorInvestido,
+      investimentoProdutos,
+      investimentoAds,
+      custo,
+      lucro,
+      roi,
+      margem,
+    };
+  }
+
+  const atual =
+    calcularResumo(
+      vendasAtuais
     );
-  }
+
+  const anterior =
+    calcularResumo(
+      vendasAnteriores
+    );
 
   /*
-   * =========================================================
-   * PRÉVIA
-   * =========================================================
+   * ============================================================
+   * VARIAÇÃO
+   * ============================================================
    */
 
-  const qtd = numero(quantidade);
-  const preco = numero(precoVenda);
-  const custo = numero(custoUnitario);
-
-  const faturamentoPrevisto =
-    preco * qtd;
-
-  const comissaoValor =
-    preco *
-    (numero(comissao) / 100);
-
-  const impostosValor =
-    preco *
-    (numero(impostos) / 100);
-
-  const acosValor =
-    preco *
-    (numero(acos) / 100);
-
-  const promocaoValor =
-    preco *
-    (numero(promocao) / 100);
-
-  const custoUnitarioTotal =
-    custo +
-    comissaoValor +
-    impostosValor +
-    acosValor +
-    promocaoValor +
-    numero(frete) +
-    numero(embalagem) +
-    numero(outrasDespesas) +
-    numero(tarifaFixa);
-
-  const custoVendaPrevisto =
-    custoUnitarioTotal * qtd;
-
-  const lucroPrevisto =
-    faturamentoPrevisto -
-    custoVendaPrevisto;
-
-  const margemPrevista =
-    faturamentoPrevisto > 0
-      ? (lucroPrevisto /
-          faturamentoPrevisto) *
-        100
-      : 0;
-
-  const custoProdutoTotal =
-    custo * qtd;
-
-  const roiPrevisto =
-    custoProdutoTotal > 0
-      ? (lucroPrevisto /
-          custoProdutoTotal) *
-        100
-      : 0;
-
-  /*
-   * =========================================================
-   * REGISTRAR VENDA
-   * =========================================================
-   */
-
-  async function registrarVenda() {
-    setMensagem("");
-    setErro("");
-
-    if (!produtoSelecionado) {
-      setErro(
-        "Selecione um produto."
-      );
-
-      return;
-    }
-
-    const quantidadeNumerica =
-      numero(quantidade);
-
-    const precoNumerico =
-      numero(precoVenda);
-
-    if (
-      !Number.isInteger(
-        quantidadeNumerica
-      ) ||
-      quantidadeNumerica <= 0
-    ) {
-      setErro(
-        "Informe uma quantidade válida."
-      );
-
-      return;
-    }
-
-    if (
-      quantidadeNumerica >
-      Number(
-        produtoSelecionado.estoque ?? 0
-      )
-    ) {
-      setErro(
-        `Estoque insuficiente. Disponível: ${
-          produtoSelecionado.estoque ?? 0
-        } unidade(s).`
-      );
-
-      return;
-    }
-
-    if (precoNumerico <= 0) {
-      setErro(
-        "Informe um preço de venda válido."
-      );
-
-      return;
-    }
-
-    setSalvando(true);
-
-    try {
-      const dataISO = new Date(
-        `${dataVenda}T12:00:00`
-      ).toISOString();
-
-      const { error } =
-        await supabase.rpc(
-          "registrar_venda",
-          {
-            p_produto_id:
-              produtoSelecionado.id,
-
-            p_quantidade:
-              quantidadeNumerica,
-
-            p_preco_venda:
-              precoNumerico,
-
-            p_data_venda:
-              dataISO,
-
-            p_custo_unitario:
-              numero(custoUnitario),
-
-            p_comissao:
-              numero(comissao),
-
-            p_impostos:
-              numero(impostos),
-
-            p_acos:
-              numero(acos),
-
-            p_promocao:
-              numero(promocao),
-
-            p_frete:
-              numero(frete),
-
-            p_embalagem:
-              numero(embalagem),
-
-            p_outras_despesas:
-              numero(outrasDespesas),
-
-            p_tarifa_fixa:
-              numero(tarifaFixa),
-          }
-        );
-
-      if (error) {
-        console.error(
-          "Erro ao registrar venda:",
-          error
-        );
-
-        setErro(
-          error.message ||
-            "Não foi possível registrar a venda."
-        );
-
-        return;
-      }
-
-      setMensagem(
-        "Venda registrada com sucesso!"
-      );
-
-      setProdutoId("");
-      setQuantidade("1");
-
-      setPrecoVenda("");
-      setCustoUnitario("");
-
-      setComissao("");
-      setImpostos("");
-      setAcos("");
-      setPromocao("");
-
-      setFrete("");
-      setEmbalagem("");
-      setOutrasDespesas("");
-
-      setTarifaFixa("6.50");
-
-      setDataVenda(
-        new Date()
-          .toISOString()
-          .split("T")[0]
-      );
-
-      await carregarDados();
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  /*
-   * =========================================================
-   * EXCLUIR / ESTORNAR VENDA
-   * =========================================================
-   */
-
-  async function excluirVenda(
-    venda: Venda
+  function calcularVariacao(
+    valorAtual: number,
+    valorAnterior: number
   ) {
-    const confirmar =
-      window.confirm(
-        `Deseja realmente excluir esta venda?\n\n` +
-          `Produto: ${
-            venda.nome_produto || "-"
-          }\n` +
-          `SKU: ${
-            venda.sku || "-"
-          }\n` +
-          `Quantidade: ${
-            venda.quantidade
-          }\n\n` +
-          `As ${
-            venda.quantidade
-          } unidade(s) serão devolvidas ao estoque.`
-      );
-
-    if (!confirmar) {
-      return;
+    if (
+      valorAnterior === 0 &&
+      valorAtual === 0
+    ) {
+      return 0;
     }
 
-    setMensagem("");
-    setErro("");
-    setExcluindoId(venda.id);
-
-    const { error } =
-      await supabase.rpc(
-        "excluir_venda",
-        {
-          p_venda_id:
-            venda.id,
-        }
-      );
-
-    if (error) {
-      console.error(
-        "Erro ao excluir venda:",
-        error
-      );
-
-      setErro(
-        error.message ||
-          "Não foi possível excluir a venda."
-      );
-
-      setExcluindoId(null);
-
-      return;
+    if (
+      valorAnterior === 0 &&
+      valorAtual !== 0
+    ) {
+      return 100;
     }
 
-    setMensagem(
-      "Venda excluída e estoque devolvido com sucesso!"
+    return (
+      ((valorAtual -
+        valorAnterior) /
+        Math.abs(
+          valorAnterior
+        )) *
+      100
     );
-
-    await carregarDados();
-
-    setExcluindoId(null);
   }
 
-  /*
-   * =========================================================
-   * INDICADORES
-   * =========================================================
-   */
+  function formatarVariacao(
+    valor: number
+  ) {
+    return `${Math.abs(valor)
+      .toFixed(1)
+      .replace(".", ",")}%`;
+  }
 
-  const totalVendido =
-    vendas.reduce(
-      (total, venda) =>
-        total +
-        Number(
-          venda.quantidade ?? 0
+  const cards = [
+    {
+      title:
+        "Produtos Vendidos",
+
+      value:
+        atual.quantidade.toLocaleString(
+          "pt-BR"
         ),
-      0
-    );
 
-  const faturamentoTotal =
-    vendas.reduce(
-      (total, venda) =>
-        total +
-        Number(
-          venda.faturamento ?? 0
+      variation:
+        calcularVariacao(
+          atual.quantidade,
+          anterior.quantidade
         ),
-      0
-    );
 
-  const lucroTotal =
-    vendas.reduce(
-      (total, venda) =>
-        total +
-        Number(
-          venda.lucro ?? 0
+      icon: ShoppingCart,
+
+      iconBg:
+        "bg-blue-500/20",
+
+      iconColor:
+        "text-blue-400",
+
+      cardGlow:
+        "from-blue-500/[0.12]",
+    },
+
+    {
+      title: "Faturamento",
+
+      value: formatarMoeda(
+        atual.faturamento
+      ),
+
+      variation:
+        calcularVariacao(
+          atual.faturamento,
+          anterior.faturamento
         ),
-      0
-    );
 
-  const custoTotal =
-    vendas.reduce(
-      (total, venda) =>
-        total +
-        Number(
-          venda.custo_total ?? 0
+      icon: DollarSign,
+
+      iconBg:
+        "bg-emerald-500/20",
+
+      iconColor:
+        "text-emerald-400",
+
+      cardGlow:
+        "from-emerald-500/[0.12]",
+    },
+
+    {
+      title: "Receita Líquida",
+      value: formatarMoeda(atual.receitaLiquida),
+      variation: calcularVariacao(atual.receitaLiquida, anterior.receitaLiquida),
+      icon: Receipt,
+      iconBg: "bg-violet-500/20",
+      iconColor: "text-violet-400",
+      cardGlow: "from-violet-500/[0.12]",
+    },
+    {
+      title: "Valor Investido",
+      value: formatarMoeda(atual.valorInvestido),
+      variation: calcularVariacao(atual.valorInvestido, anterior.valorInvestido),
+      icon: Target,
+      iconBg: "bg-rose-500/20",
+      iconColor: "text-rose-400",
+      cardGlow: "from-rose-500/[0.12]",
+      detail: {
+        produtos: formatarMoeda(atual.investimentoProdutos),
+        ads: formatarMoeda(atual.investimentoAds),
+      },
+    },
+    {
+      title:
+        "Custo das Vendas",
+
+      value: formatarMoeda(
+        atual.custo
+      ),
+
+      variation:
+        calcularVariacao(
+          atual.custo,
+          anterior.custo
         ),
-      0
-    );
 
-  const margemMedia =
-    faturamentoTotal > 0
-      ? (lucroTotal /
-          faturamentoTotal) *
-        100
-      : 0;
+      icon: Wallet,
 
-  const roiTotal =
-    custoTotal > 0
-      ? (lucroTotal /
-          custoTotal) *
-        100
-      : 0;
+      iconBg:
+        "bg-amber-500/20",
 
-  const classeInput =
-    "h-11 w-full rounded-xl border border-[#213A57] bg-[#0D223B] px-3 text-[12px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#315678] focus:ring-4 focus:ring-blue-500/[0.04]";
+      iconColor:
+        "text-amber-400",
+
+      cardGlow:
+        "from-amber-500/[0.12]",
+    },
+
+    {
+      title:
+        "Lucro Líquido",
+
+      value: formatarMoeda(
+        atual.lucro
+      ),
+
+      variation:
+        calcularVariacao(
+          atual.lucro,
+          anterior.lucro
+        ),
+
+      icon: TrendingUp,
+
+      iconBg:
+        atual.lucro >= 0
+          ? "bg-fuchsia-500/20"
+          : "bg-red-500/20",
+
+      iconColor:
+        atual.lucro >= 0
+          ? "text-fuchsia-400"
+          : "text-red-400",
+
+      cardGlow:
+        atual.lucro >= 0
+          ? "from-fuchsia-500/[0.12]"
+          : "from-red-500/[0.12]",
+    },
+
+    {
+      title: "ROI",
+
+      value: `${atual.roi.toFixed(
+        2
+      )}%`,
+
+      variation:
+        calcularVariacao(
+          atual.roi,
+          anterior.roi
+        ),
+
+      icon: BarChart3,
+
+      iconBg:
+        atual.roi >= 0
+          ? "bg-emerald-500/20"
+          : "bg-red-500/20",
+
+      iconColor:
+        atual.roi >= 0
+          ? "text-emerald-400"
+          : "text-red-400",
+
+      cardGlow:
+        atual.roi >= 0
+          ? "from-emerald-500/[0.12]"
+          : "from-red-500/[0.12]",
+    },
+
+    {
+      title:
+        "Margem Média",
+
+      value: `${atual.margem.toFixed(
+        2
+      )}%`,
+
+      variation:
+        calcularVariacao(
+          atual.margem,
+          anterior.margem
+        ),
+
+      icon: Percent,
+
+      iconBg:
+        atual.margem >= 0
+          ? "bg-blue-500/20"
+          : "bg-red-500/20",
+
+      iconColor:
+        atual.margem >= 0
+          ? "text-blue-400"
+          : "text-red-400",
+
+      cardGlow:
+        atual.margem >= 0
+          ? "from-blue-500/[0.12]"
+          : "from-red-500/[0.12]",
+    },
+  ];
 
   return (
-    <MainLayout>
-      <div className="-m-6 min-h-[calc(100vh-64px)] bg-[#07182B] p-6 lg:-m-8 lg:p-8">
-        <div className="mx-auto max-w-[1600px] space-y-6">
-          {/* =====================================================
-              CABEÇALHO
-          ===================================================== */}
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
+      {cards.map((card) => {
+        const Icon =
+          card.icon;
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-[10px] font-semibold">
-                <span className="text-slate-500">
-                  Alcance
-                </span>
+        const subiu =
+          card.variation > 0;
 
-                <span className="text-slate-700">
-                  /
-                </span>
+        const caiu =
+          card.variation < 0;
 
-                <span className="text-slate-300">
-                  Vendas
-                </span>
-              </div>
-
-              <h1 className="mt-3 text-3xl font-bold tracking-[-0.03em] text-white">
-                Vendas
-              </h1>
-
-              <p className="mt-1.5 text-sm text-slate-400">
-                Registre suas vendas,
-                acompanhe os resultados e
-                ajuste os custos de cada
-                operação.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                document
-                  .getElementById(
-                    "formulario-venda"
-                  )
-                  ?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  })
-              }
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F47B20] px-5 text-[11px] font-bold text-white shadow-[0_8px_20px_rgba(244,123,32,0.20)] transition hover:-translate-y-0.5 hover:bg-[#FF861F]"
-            >
-              <Plus
-                size={16}
-                strokeWidth={2.4}
-              />
-
-              Registrar venda
-            </button>
-          </div>
-
-          {/* =====================================================
-              CARDS
-          ===================================================== */}
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <Card
-              titulo="Unidades vendidas"
-              valor={
-                carregando
-                  ? "..."
-                  : totalVendido.toLocaleString(
-                      "pt-BR"
-                    )
-              }
-              icone={
-                <Package
-                  size={20}
-                />
-              }
-              variante="blue"
-            />
-
-            <Card
-              titulo="Faturamento"
-              valor={
-                carregando
-                  ? "..."
-                  : formatarMoeda(
-                      faturamentoTotal
-                    )
-              }
-              icone={
-                <DollarSign
-                  size={20}
-                />
-              }
-              variante="violet"
-            />
-
-            <Card
-              titulo="Lucro líquido"
-              valor={
-                carregando
-                  ? "..."
-                  : formatarMoeda(
-                      lucroTotal
-                    )
-              }
-              icone={
-                <Wallet
-                  size={20}
-                />
-              }
-              variante={
-                lucroTotal >= 0
-                  ? "green"
-                  : "red"
-              }
-            />
-
-            <Card
-              titulo="Margem média"
-              valor={
-                carregando
-                  ? "..."
-                  : `${margemMedia.toFixed(
-                      2
-                    )}%`
-              }
-              icone={
-                <TrendingUp
-                  size={20}
-                />
-              }
-              variante="green"
-            />
-
-            <Card
-              titulo="ROI"
-              valor={
-                carregando
-                  ? "..."
-                  : `${roiTotal.toFixed(
-                      2
-                    )}%`
-              }
-              icone={
-                <BarChart3
-                  size={20}
-                />
-              }
-              variante="orange"
-            />
-          </div>
-
-          {/* =====================================================
-              MENSAGENS
-          ===================================================== */}
-
-          {mensagem && (
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-semibold text-emerald-300">
-              {mensagem}
-            </div>
-          )}
-
-          {erro && (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[11px] font-semibold text-red-300">
-              {erro}
-            </div>
-          )}
-
-          {/* =====================================================
-              FORMULÁRIO
-          ===================================================== */}
-
+        return (
           <div
-            id="formulario-venda"
-            className="overflow-hidden rounded-2xl border border-[#1B3352] bg-[#091B30] shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
+            key={card.title}
+            className="
+              group
+              relative
+              h-[142px]
+              overflow-hidden
+              rounded-[13px]
+              border
+              border-[#243750]
+              bg-[#0d1b2f]
+              px-3
+              py-3
+              shadow-[0_8px_24px_rgba(0,0,0,0.16)]
+              transition-all
+              duration-300
+              hover:-translate-y-0.5
+              hover:border-[#345078]
+            "
           >
-            {/* Cabeçalho formulário */}
+            {/* Glow */}
+            <div
+              className={`
+                pointer-events-none
+                absolute
+                inset-x-0
+                top-0
+                h-20
+                bg-gradient-to-b
+                ${card.cardGlow}
+                to-transparent
+              `}
+            />
 
-            <div className="border-b border-[#17304D] px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400">
-                  <Plus size={18} />
-                </div>
+            <div className="relative flex h-full flex-col">
 
-                <div>
-                  <h2 className="text-[15px] font-bold text-white">
-                    Registrar venda
-                  </h2>
-
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    Os dados são preenchidos
-                    pelo cadastro do produto,
-                    mas você pode editar tudo
-                    para esta operação.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-8 p-6">
-              {/* =================================================
-                  DADOS DA VENDA
-              ================================================= */}
-
-              <section>
-                <TituloSecao>
-                  Dados da venda
-                </TituloSecao>
-
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="md:col-span-2">
-                    <label className="mb-2 block text-[10px] font-semibold text-slate-400">
-                      Produto / SKU
-                    </label>
-
-                    <select
-                      value={produtoId}
-                      onChange={(e) =>
-                        selecionarProduto(
-                          e.target.value
-                        )
-                      }
-                      className={classeInput}
-                    >
-                      <option value="">
-                        Selecione um produto
-                      </option>
-
-                      {produtos.map(
-                        (produto) => (
-                          <option
-                            key={
-                              produto.id
-                            }
-                            value={
-                              produto.id
-                            }
-                          >
-                            {produto.sku ||
-                              "Sem SKU"}{" "}
-                            —{" "}
-                            {produto.nome ||
-                              "Sem nome"}{" "}
-                            — Estoque:{" "}
-                            {produto.estoque ??
-                              0}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </div>
-
-                  <Campo
-                    label="Quantidade"
-                    value={quantidade}
-                    onChange={
-                      setQuantidade
-                    }
-                  />
-
-                  <div>
-                    <label className="mb-2 block text-[10px] font-semibold text-slate-400">
-                      Data da venda
-                    </label>
-
-                    <div className="relative">
-                      <CalendarDays
-                        size={15}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-                      />
-
-                      <input
-                        type="date"
-                        value={
-                          dataVenda
-                        }
-                        onChange={(e) =>
-                          setDataVenda(
-                            e.target.value
-                          )
-                        }
-                        className={`${classeInput} pl-9 [color-scheme:dark]`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {produtoSelecionado && (
-                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#1B3352] bg-[#0D223B] px-4 py-3">
-                    <span className="text-[10px] text-slate-500">
-                      Estoque disponível
-                    </span>
-
-                    <span
-                      className={[
-                        "rounded-lg px-2.5 py-1 text-[10px] font-bold",
-                        Number(
-                          produtoSelecionado.estoque ??
-                            0
-                        ) <= 0
-                          ? "bg-red-500/10 text-red-400"
-                          : Number(
-                                produtoSelecionado.estoque ??
-                                  0
-                              ) <= 5
-                            ? "bg-orange-500/10 text-orange-400"
-                            : "bg-blue-500/10 text-blue-300",
-                      ].join(" ")}
-                    >
-                      {produtoSelecionado.estoque ??
-                        0}{" "}
-                      un.
-                    </span>
-
-                    <span className="text-[10px] text-slate-600">
-                      •
-                    </span>
-
-                    <span className="text-[10px] text-slate-500">
-                      {produtoSelecionado.sku ||
-                        "Sem SKU"}
-                    </span>
-                  </div>
-                )}
-              </section>
-
-              <Divisor />
-
-              {/* =================================================
-                  PREÇO E CUSTOS
-              ================================================= */}
-
-              <section>
-                <TituloSecao>
-                  Preço e custos
-                </TituloSecao>
-
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                  <Campo
-                    label="Preço de venda"
-                    value={precoVenda}
-                    onChange={
-                      setPrecoVenda
-                    }
-                    prefixo="R$"
-                  />
-
-                  <Campo
-                    label="Custo unitário"
-                    value={
-                      custoUnitario
-                    }
-                    onChange={
-                      setCustoUnitario
-                    }
-                    prefixo="R$"
-                  />
-
-                  <Campo
-                    label="Frete"
-                    value={frete}
-                    onChange={setFrete}
-                    prefixo="R$"
-                  />
-
-                  <Campo
-                    label="Embalagem"
-                    value={embalagem}
-                    onChange={
-                      setEmbalagem
-                    }
-                    prefixo="R$"
-                  />
-
-                  <Campo
-                    label="Outras despesas"
-                    value={
-                      outrasDespesas
-                    }
-                    onChange={
-                      setOutrasDespesas
-                    }
-                    prefixo="R$"
-                  />
-
-                  <Campo
-                    label="Tarifa fixa"
-                    value={tarifaFixa}
-                    onChange={
-                      setTarifaFixa
-                    }
-                    prefixo="R$"
-                  />
-                </div>
-              </section>
-
-              <Divisor />
-
-              {/* =================================================
-                  PERCENTUAIS
-              ================================================= */}
-
-              <section>
-                <TituloSecao>
-                  Percentuais da venda
-                </TituloSecao>
-
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                  <Campo
-                    label="Comissão"
-                    value={comissao}
-                    onChange={
-                      setComissao
-                    }
-                    sufixo="%"
-                  />
-
-                  <Campo
-                    label="Impostos"
-                    value={impostos}
-                    onChange={
-                      setImpostos
-                    }
-                    sufixo="%"
-                  />
-
-                  <Campo
-                    label="ACOS"
-                    value={acos}
-                    onChange={setAcos}
-                    sufixo="%"
-                  />
-
-                  <Campo
-                    label="Promoção"
-                    value={promocao}
-                    onChange={
-                      setPromocao
-                    }
-                    sufixo="%"
-                  />
-                </div>
-              </section>
-
-              {/* =================================================
-                  PRÉVIA
-              ================================================= */}
-
-              {produtoSelecionado && (
-                <>
-                  <Divisor />
-
-                  <section>
-                    <div className="mb-4 flex items-center justify-between">
-                      <TituloSecao>
-                        Prévia da venda
-                      </TituloSecao>
-
-                      <span className="rounded-lg bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold text-blue-300">
-                        Atualização em tempo real
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                      <Resumo
-                        titulo="Faturamento"
-                        valor={formatarMoeda(
-                          faturamentoPrevisto
-                        )}
-                      />
-
-                      <Resumo
-                        titulo="Custos"
-                        valor={formatarMoeda(
-                          custoVendaPrevisto
-                        )}
-                      />
-
-                      <Resumo
-                        titulo="Lucro"
-                        valor={formatarMoeda(
-                          lucroPrevisto
-                        )}
-                        destaque={
-                          lucroPrevisto >= 0
-                            ? "positivo"
-                            : "negativo"
-                        }
-                      />
-
-                      <Resumo
-                        titulo="Margem"
-                        valor={`${margemPrevista.toFixed(
-                          2
-                        )}%`}
-                        destaque={
-                          margemPrevista >= 0
-                            ? "positivo"
-                            : "negativo"
-                        }
-                      />
-
-                      <Resumo
-                        titulo="ROI"
-                        valor={`${roiPrevisto.toFixed(
-                          2
-                        )}%`}
-                        destaque={
-                          roiPrevisto >= 0
-                            ? "positivo"
-                            : "negativo"
-                        }
-                      />
-                    </div>
-                  </section>
-                </>
-              )}
-            </div>
-
-            {/* Rodapé formulário */}
-
-            <div className="flex justify-end border-t border-[#17304D] bg-[#0A1D33] px-6 py-4">
-              <button
-                type="button"
-                onClick={
-                  registrarVenda
-                }
-                disabled={
-                  salvando ||
-                  carregando
-                }
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#F47B20] px-6 text-[11px] font-bold text-white shadow-[0_8px_20px_rgba(244,123,32,0.18)] transition hover:bg-[#FF861F] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {salvando ? (
-                  <RefreshCw
+              {/* Ícone + título */}
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`
+                    flex
+                    h-8
+                    w-8
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-[9px]
+                    border
+                    border-white/[0.03]
+                    ${card.iconBg}
+                  `}
+                >
+                  <Icon
                     size={15}
-                    className="animate-spin"
-                  />
-                ) : (
-                  <Plus size={16} />
-                )}
-
-                {salvando
-                  ? "Registrando..."
-                  : "Registrar venda"}
-              </button>
-            </div>
-          </div>
-
-          {/* =====================================================
-              HISTÓRICO
-          ===================================================== */}
-
-          <div className="overflow-hidden rounded-2xl border border-[#1B3352] bg-[#091B30] shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
-            <div className="flex flex-col gap-4 border-b border-[#17304D] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-[15px] font-bold text-white">
-                  Vendas recentes
-                </h2>
-
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Histórico das vendas
-                  registradas.
-                </p>
-              </div>
-
-              <span className="w-fit rounded-lg bg-blue-500/10 px-3 py-1.5 text-[9px] font-bold text-blue-300">
-                {vendas.length} venda(s)
-              </span>
-            </div>
-
-            {carregando ? (
-              <div className="flex min-h-[220px] flex-col items-center justify-center gap-3">
-                <RefreshCw
-                  size={18}
-                  className="animate-spin text-blue-400"
-                />
-
-                <p className="text-[10px] text-slate-500">
-                  Carregando vendas...
-                </p>
-              </div>
-            ) : vendas.length === 0 ? (
-              <div className="flex min-h-[220px] flex-col items-center justify-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#122943]">
-                  <Package
-                    size={19}
-                    className="text-slate-500"
+                    strokeWidth={2}
+                    className={
+                      card.iconColor
+                    }
                   />
                 </div>
 
-                <p className="mt-4 text-[12px] font-semibold text-slate-400">
-                  Nenhuma venda registrada
-                </p>
-
-                <p className="mt-1 text-[10px] text-slate-600">
-                  As vendas aparecerão
-                  aqui após o registro.
+                <p className="min-w-0 truncate text-[10px] font-medium text-slate-400">
+                  {card.title}
                 </p>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1050px]">
-                  <thead>
-                    <tr className="border-b border-[#17304D] bg-[#0D223B] text-left">
-                      <th className="px-6 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        Data
-                      </th>
 
-                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        SKU
-                      </th>
+              {/* Valor */}
+              <h2 className="mt-2 truncate text-[clamp(14px,1.2vw,20px)] font-bold leading-none tracking-[-0.04em] text-white">
+                {carregando
+                  ? "..."
+                  : card.value}
+              </h2>
 
-                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        Produto
-                      </th>
+              {"detail" in card && card.detail && (
+                <div className="mt-1 space-y-0.5 text-[9px] text-slate-400">
+                  <div className="flex justify-between gap-1">
+                    <span>Produtos</span>
+                    <span className="text-slate-200">{carregando ? "..." : card.detail.produtos}</span>
+                  </div>
+                  <div className="flex justify-between gap-1">
+                    <span>Ads</span>
+                    <span className="text-slate-200">{carregando ? "..." : card.detail.ads}</span>
+                  </div>
+                </div>
+              )}
 
-                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        Qtd.
-                      </th>
+              {/* Comparação */}
+              <div className="mt-auto">
+                <div className="flex items-center gap-1">
+                  {subiu ? (
+                    <TrendingUp
+                      size={11}
+                      className="text-emerald-400"
+                    />
+                  ) : caiu ? (
+                    <TrendingDown
+                      size={11}
+                      className="text-red-400"
+                    />
+                  ) : (
+                    <Minus
+                      size={11}
+                      className="text-slate-500"
+                    />
+                  )}
 
-                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        Faturamento
-                      </th>
+                  <span
+                    className={`text-[9px] font-semibold ${
+                      subiu
+                        ? "text-emerald-400"
+                        : caiu
+                        ? "text-red-400"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    {carregando
+                      ? "..."
+                      : formatarVariacao(
+                          card.variation
+                        )}
+                  </span>
+                </div>
 
-                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        Lucro
-                      </th>
-
-                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        Margem
-                      </th>
-
-                      <th className="px-4 py-4 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        ROI
-                      </th>
-
-                      <th className="px-5 py-4 text-right text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                        Ação
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {vendas.map(
-                      (venda) => {
-                        const lucro =
-                          Number(
-                            venda.lucro
-                          );
-
-                        const margem =
-                          Number(
-                            venda.margem
-                          );
-
-                        const roi =
-                          Number(
-                            venda.roi
-                          );
-
-                        return (
-                          <tr
-                            key={
-                              venda.id
-                            }
-                            className="border-b border-[#142D49] text-[11px] transition hover:bg-white/[0.025]"
-                          >
-                            <td className="px-6 py-4 text-slate-400">
-                              {formatarData(
-                                venda.data_venda
-                              )}
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <span className="rounded-lg bg-blue-500/10 px-2.5 py-1.5 font-mono text-[9px] font-bold text-blue-300">
-                                {venda.sku ||
-                                  "-"}
-                              </span>
-                            </td>
-
-                            <td className="max-w-[280px] px-4 py-4">
-                              <p className="truncate font-semibold text-slate-200">
-                                {venda.nome_produto ||
-                                  "-"}
-                              </p>
-                            </td>
-
-                            <td className="px-4 py-4 text-slate-400">
-                              {
-                                venda.quantidade
-                              }
-                            </td>
-
-                            <td className="px-4 py-4 font-bold text-white">
-                              {formatarMoeda(
-                                venda.faturamento
-                              )}
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <span
-                                className={[
-                                  "font-bold",
-                                  lucro >= 0
-                                    ? "text-emerald-400"
-                                    : "text-red-400",
-                                ].join(
-                                  " "
-                                )}
-                              >
-                                {formatarMoeda(
-                                  lucro
-                                )}
-                              </span>
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <BadgePercentual
-                                valor={
-                                  margem
-                                }
-                              />
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <BadgePercentual
-                                valor={roi}
-                              />
-                            </td>
-
-                            <td className="px-5 py-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  excluirVenda(
-                                    venda
-                                  )
-                                }
-                                disabled={
-                                  excluindoId ===
-                                  venda.id
-                                }
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
-                                title="Excluir venda e devolver ao estoque"
-                              >
-                                {excluindoId ===
-                                venda.id ? (
-                                  <RefreshCw
-                                    size={
-                                      14
-                                    }
-                                    className="animate-spin"
-                                  />
-                                ) : (
-                                  <Trash2
-                                    size={
-                                      14
-                                    }
-                                  />
-                                )}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      }
-                    )}
-                  </tbody>
-                </table>
+                <p className="mt-0.5 text-[8px] text-slate-600">
+                  vs. período anterior
+                </p>
               </div>
-            )}
-
-            <div className="border-t border-[#17304D] px-6 py-3.5">
-              <p className="text-[9px] text-slate-600">
-                Ao excluir uma venda, a
-                quantidade vendida será
-                devolvida automaticamente
-                ao estoque.
-              </p>
             </div>
           </div>
-        </div>
-      </div>
-    </MainLayout>
-  );
-}
-
-/*
- * =========================================================
- * CAMPO
- * =========================================================
- */
-
-function Campo({
-  label,
-  value,
-  onChange,
-  prefixo,
-  sufixo,
-}: {
-  label: string;
-  value: string;
-
-  onChange: (
-    valor: string
-  ) => void;
-
-  prefixo?: string;
-  sufixo?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-[10px] font-semibold text-slate-400">
-        {label}
-      </label>
-
-      <div className="relative">
-        {prefixo && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-500">
-            {prefixo}
-          </span>
-        )}
-
-        <input
-          type="text"
-          inputMode="decimal"
-          value={value}
-          onChange={(e) =>
-            onChange(
-              e.target.value
-            )
-          }
-          className={[
-            "h-11 w-full rounded-xl border border-[#213A57] bg-[#0D223B] text-[12px] text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#315678] focus:ring-4 focus:ring-blue-500/[0.04]",
-
-            prefixo
-              ? "pl-9"
-              : "pl-3",
-
-            sufixo
-              ? "pr-8"
-              : "pr-3",
-          ].join(" ")}
-        />
-
-        {sufixo && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-500">
-            {sufixo}
-          </span>
-        )}
-      </div>
+        );
+      })}
     </div>
-  );
-}
-
-/*
- * =========================================================
- * RESUMO
- * =========================================================
- */
-
-function Resumo({
-  titulo,
-  valor,
-  destaque,
-}: {
-  titulo: string;
-  valor: string;
-
-  destaque?:
-    | "positivo"
-    | "negativo";
-}) {
-  return (
-    <div className="rounded-xl border border-[#1B3352] bg-[#0D223B] p-4">
-      <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-        {titulo}
-      </p>
-
-      <p
-        className={[
-          "mt-2 text-[14px] font-bold",
-
-          destaque ===
-          "positivo"
-            ? "text-emerald-400"
-            : destaque ===
-                "negativo"
-              ? "text-red-400"
-              : "text-white",
-        ].join(" ")}
-      >
-        {valor}
-      </p>
-    </div>
-  );
-}
-
-/*
- * =========================================================
- * CARD
- * =========================================================
- */
-
-function Card({
-  titulo,
-  valor,
-  icone,
-  variante,
-}: {
-  titulo: string;
-  valor: string;
-  icone: React.ReactNode;
-
-  variante:
-    | "blue"
-    | "violet"
-    | "green"
-    | "orange"
-    | "red";
-}) {
-  const estilos = {
-    blue:
-      "bg-blue-500/10 text-blue-400 ring-blue-400/10",
-
-    violet:
-      "bg-violet-500/10 text-violet-400 ring-violet-400/10",
-
-    green:
-      "bg-emerald-500/10 text-emerald-400 ring-emerald-400/10",
-
-    orange:
-      "bg-orange-500/10 text-orange-400 ring-orange-400/10",
-
-    red:
-      "bg-red-500/10 text-red-400 ring-red-400/10",
-  };
-
-  return (
-    <div className="rounded-2xl border border-[#1B3352] bg-[#0B1E35] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
-      <div
-        className={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${estilos[variante]}`}
-      >
-        {icone}
-      </div>
-
-      <p className="mt-4 text-[10px] font-medium text-slate-400">
-        {titulo}
-      </p>
-
-      <h2 className="mt-1 text-[22px] font-bold tracking-[-0.02em] text-white">
-        {valor}
-      </h2>
-    </div>
-  );
-}
-
-/*
- * =========================================================
- * TÍTULO DE SEÇÃO
- * =========================================================
- */
-
-function TituloSecao({
-  children,
-}: {
-  children:
-    React.ReactNode;
-}) {
-  return (
-    <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-300">
-      {children}
-    </h3>
-  );
-}
-
-/*
- * =========================================================
- * DIVISOR
- * =========================================================
- */
-
-function Divisor() {
-  return (
-    <div className="h-px bg-[#17304D]" />
-  );
-}
-
-/*
- * =========================================================
- * BADGE %
- * =========================================================
- */
-
-function BadgePercentual({
-  valor,
-}: {
-  valor: number;
-}) {
-  return (
-    <span
-      className={[
-        "inline-flex rounded-lg px-2.5 py-1.5 text-[9px] font-bold",
-
-        valor >= 15
-          ? "bg-emerald-500/10 text-emerald-400"
-          : valor >= 5
-            ? "bg-amber-500/10 text-amber-400"
-            : valor >= 0
-              ? "bg-orange-500/10 text-orange-400"
-              : "bg-red-500/10 text-red-400",
-      ].join(" ")}
-    >
-      {valor.toFixed(2)}%
-    </span>
   );
 }
