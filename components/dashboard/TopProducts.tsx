@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Trophy,
   ChevronRight,
@@ -281,183 +282,66 @@ export default function TopProducts({
   ];
 
   return (
-    <div
-      className="
-        relative
-        h-[250px]
-        overflow-hidden
-        rounded-[14px]
-        border
-        border-[#233754]
-        bg-[#0d1b2f]
-        px-3.5
-        py-3
-        shadow-[0_8px_24px_rgba(0,0,0,0.15)]
-      "
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-amber-500/[0.025] to-transparent" />
-
-      <div className="relative flex h-full flex-col">
-
-        {/* Cabeçalho */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-[13px] font-bold text-white">
-              Produtos Mais Vendidos
-            </h2>
-
-            <p className="mt-0.5 text-[8px] text-slate-600">
-              Ranking do período • {quantidadeDias} dias
-            </p>
+    <section className="relative flex h-full min-h-[260px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#203A58] bg-[linear-gradient(145deg,#0C2038,#08182B)] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.17)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-amber-500/[0.035] to-transparent" />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[14px] font-bold tracking-tight text-white">Produtos Mais Vendidos</h2>
+            <p className="mt-1 text-[10px] text-slate-400">Ranking por unidades vendidas · {quantidadeDias} dias</p>
           </div>
-
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-500/10 bg-amber-500/10">
-            <Trophy
-              size={13}
-              className="text-amber-400"
-            />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-400/15 bg-amber-400/10 text-amber-400">
+            <Trophy size={17} />
           </div>
         </div>
 
-        {/* Cabeçalho tabela */}
-        <div className="mt-2.5 grid grid-cols-[1fr_42px_84px] items-center gap-2 border-b border-[#233754]/70 pb-1.5">
-          <span className="text-[7px] font-medium uppercase tracking-[0.08em] text-slate-600">
-            Produto
-          </span>
-
-          <span className="text-right text-[7px] font-medium uppercase tracking-[0.08em] text-slate-600">
-            Unid.
-          </span>
-
-          <span className="text-right text-[7px] font-medium uppercase tracking-[0.08em] text-slate-600">
-            Faturamento
-          </span>
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_42px_88px] gap-2 border-b border-[#29415C] pb-2 text-[9px] font-semibold uppercase tracking-[0.07em] text-slate-400">
+          <span>Produto</span>
+          <span className="text-right">Unid.</span>
+          <span className="text-right">Faturamento</span>
         </div>
 
-        {/* Conteúdo */}
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {carregando ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="flex items-center gap-2 text-[9px] text-slate-500">
-                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-700 border-t-amber-400" />
-
-                Carregando...
-              </div>
+            <div className="flex h-full min-h-[115px] items-center justify-center gap-2 text-xs text-slate-400">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-orange-400" />
+              Carregando produtos...
             </div>
           ) : produtos.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#233754] bg-[#101e32]">
-                <Package
-                  size={16}
-                  className="text-slate-600"
-                />
-              </div>
-
-              <p className="mt-2 text-[9px] font-medium text-slate-400">
-                Nenhuma venda registrada
-              </p>
-
-              <p className="mt-0.5 text-[7px] text-slate-600">
-                O ranking aparecerá após as primeiras vendas
-              </p>
+            <div className="flex min-h-[115px] flex-col items-center justify-center gap-2 text-center">
+              <Package size={22} className="text-slate-500" />
+              <p className="text-xs font-medium text-slate-300">Nenhuma venda registrada no período</p>
+              <p className="text-[10px] text-slate-500">O ranking aparecerá quando houver vendas.</p>
             </div>
           ) : (
-            <div>
-              {produtos.map(
-                (
-                  produto,
-                  index
-                ) => (
-                  <div
-                    key={`${produto.sku}-${index}`}
-                    className="
-                      grid
-                      grid-cols-[1fr_42px_84px]
-                      items-center
-                      gap-2
-                      border-b
-                      border-[#17263a]
-                      py-[5px]
-                      last:border-b-0
-                    "
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-
-                      <div
-                        className={`
-                          flex
-                          h-[21px]
-                          w-[21px]
-                          shrink-0
-                          items-center
-                          justify-center
-                          rounded-md
-                          border
-                          text-[8px]
-                          font-bold
-                          ${rankingCores[index]}
-                        `}
-                      >
-                        {index + 1}
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="truncate text-[8px] font-medium text-slate-200">
-                          {produto.nome}
-                        </p>
-
-                        <p className="mt-0.5 truncate text-[7px] text-slate-600">
-                          SKU: {produto.sku}
-                        </p>
-                      </div>
-                    </div>
-
-                    <span className="text-right text-[8px] font-semibold text-slate-300">
-                      {produto.unidades.toLocaleString(
-                        "pt-BR"
-                      )}
-                    </span>
-
-                    <span className="truncate text-right text-[8px] font-bold text-white">
-                      {formatarMoeda(
-                        produto.faturamento
-                      )}
-                    </span>
+            produtos.map((produto, index) => (
+              <div
+                key={`${produto.sku}-${produto.nome}-${index}`}
+                className="grid grid-cols-[minmax(0,1fr)_42px_88px] items-center gap-2 border-b border-[#203650]/70 py-2.5 last:border-b-0"
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold ${rankingCores[index]}`}>
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-semibold text-slate-100" title={produto.nome}>{produto.nome}</p>
+                    <p className="mt-0.5 truncate text-[9px] text-slate-500" title={produto.sku}>SKU: {produto.sku}</p>
                   </div>
-                )
-              )}
-            </div>
+                </div>
+                <span className="text-right text-[11px] font-semibold tabular-nums text-slate-200">{produto.unidades.toLocaleString("pt-BR")}</span>
+                <span className="text-right text-[11px] font-bold tabular-nums text-white">{formatarMoeda(produto.faturamento)}</span>
+              </div>
+            ))
           )}
         </div>
 
-        <button
-          type="button"
-          className="
-            mt-2
-            flex
-            h-7
-            w-full
-            items-center
-            justify-center
-            gap-1
-            rounded-md
-            border
-            border-[#28405e]
-            bg-[#102039]
-            text-[8px]
-            font-medium
-            text-slate-400
-            transition
-            hover:border-blue-500/30
-            hover:bg-[#132844]
-            hover:text-slate-200
-          "
+        <Link
+          href="/produtos"
+          className="mt-3 flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#2A4362] bg-[#112942] text-[11px] font-semibold text-slate-300 transition hover:border-orange-500/40 hover:bg-[#18334F] hover:text-white"
         >
-          Ver todos os produtos
-
-          <ChevronRight size={10} />
-        </button>
+          Ver todos os produtos <ChevronRight size={14} />
+        </Link>
       </div>
-    </div>
+    </section>
   );
 }
