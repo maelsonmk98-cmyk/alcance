@@ -1,984 +1,607 @@
+
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays } from "lucide-react";
+import { useEffect, useId, useMemo, useState } from "react";
+import { AlertCircle, CalendarDays, TrendingUp } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-
-type Venda = {
-  data_venda: string;
-  faturamento: number | null;
-};
-
-type Dia = {
-  data: string;
-  label: string;
-  valor: number;
-};
 
 type Props = {
   dataInicio?: string;
   dataFim?: string;
 };
 
-type Ponto = Dia & {
+type Venda = {
+  data_venda: string;
+  faturamento: number | null;
+  promocao: number | null;
+  lucro: number | null;
+};
+
+type Dia = {
+  data: string;
+  label: string;
+  faturamento: number;
+  lucro: number;
+};
+
+type Ponto = {
   x: number;
   y: number;
 };
+
+const LARGURA = 1000;
+const ALTURA = 280;
+const ESQUERDA = 75;
+const DIREITA = 20;
+const TOPO = 18;
+const BAIXO = 38;
+
+const LARGURA_GRAFICO = LARGURA - ESQUERDA - DIREITA;
+const ALTURA_GRAFICO = ALTURA - TOPO - BAIXO;
+
+function numero(valor: number | null): number {
+  const resultado = Number(valor ?? 0);
+  return Number.isFinite(resultado) ? resultado : 0;
+}
+
+function centavos(valor: number): number {
+  return Math.round((valor + Number.EPSILON) * 100);
+}
+
+function moeda(valor: number): string {
+  return valor.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function moedaEixo(valor: number): string {
+  const absoluto = Math.abs(valor);
+  const sinal = valor < 0 ? "-" : "";
+
+  if (absoluto >= 1000000) {
+    return `${sinal}R$ ${(absoluto / 1000000)
+      .toFixed(1)
+      .replace(".", ",")}M`;
+  }
+
+  if (absoluto >= 1000) {
+    return `${sinal}R$ ${(absoluto / 1000)
+      .toFixed(1)
+      .replace(".", ",")} mil`;
+  }
+
+  return `${sinal}R$ ${absoluto.toFixed(0)}`;
+}
+
+function criarDataLocal(
+  valor: string,
+  fim = false
+): Date {
+  const [ano, mes, dia] = valor.split("-").map(Number);
+  const data = new Date(ano, mes - 1, dia);
+
+  data.setHours(
+    fim ? 23 : 0,
+    fim ? 59 : 0,
+    fim ? 59 : 0,
+    fim ? 999 : 0
+  );
+
+  return data;
+}
+
+function chaveData(data: Date): string {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+function quantidadeDiasEntre(
+  inicio: Date,
+  fim: Date
+): number {
+  const inicioUTC = Date.UTC(
+    inicio.getFullYear(),
+    inicio.getMonth(),
+    inicio.getDate()
+  );
+
+  const fimUTC = Date.UTC(
+    fim.getFullYear(),
+    fim.getMonth(),
+    fim.getDate()
+  );
+
+  return Math.round(
+    (fimUTC - inicioUTC) / 86400000
+  ) + 1;
+}
+
+function criarDias(
+  inicio: Date,
+  quantidade: number
+): Dia[] {
+  return Array.from({ length: quantidade }, (_, index) => {
+    const data = new Date(inicio);
+    data.setDate(data.getDate() + index);
+
+    return {
+      data: chaveData(data),
+      label: data
+        .toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+        })
+        .replace(".", ""),
+      faturamento: 0,
+      lucro: 0,
+    };
+  });
+}
+
+function faturamentoAposPromocao(venda: Venda): number {
+  const bruto = centavos(numero(venda.faturamento));
+
+  const desconto = centavos(
+    (bruto / 100) * (numero(venda.promocao) / 100)
+  );
+
+  return (bruto - desconto) / 100;
+}
+
+function escalaArredondada(valor: number): number {
+  if (valor <= 0) return 0;
+
+  const magnitude = Math.pow(
+    10,
+    Math.floor(Math.log10(valor))
+  );
+
+  const normalizado = valor / magnitude;
+
+  if (normalizado <= 1) return magnitude;
+  if (normalizado <= 2) return 2 * magnitude;
+  if (normalizado <= 5) return 5 * magnitude;
+
+  return 10 * magnitude;
+}
+
+function criarLinha(pontos: Ponto[]): string {
+  if (!pontos.length) return "";
+
+  let caminho = `M ${pontos[0].x} ${pontos[0].y}`;
+
+  for (let i = 0; i < pontos.length - 1; i++) {
+    const atual = pontos[i];
+    const proximo = pontos[i + 1];
+    const meio = (atual.x + proximo.x) / 2;
+
+    caminho += ` C ${meio} ${atual.y}, ${meio} ${proximo.y}, ${proximo.x} ${proximo.y}`;
+  }
+
+  return caminho;
+}
+
+function deveMostrarData(
+  index: number,
+  quantidade: number
+): boolean {
+  if (quantidade <= 7) return true;
+  if (quantidade <= 15) return index % 2 === 0;
+  if (quantidade <= 30) return index % 5 === 0;
+  if (quantidade <= 60) return index % 10 === 0;
+
+  return index % 15 === 0;
+}
 
 export default function SalesChart({
   dataInicio,
   dataFim,
 }: Props) {
+  const gradientId = useId().replace(/:/g, "");
+
   const [dadosAtuais, setDadosAtuais] = useState<Dia[]>([]);
   const [dadosAnteriores, setDadosAnteriores] = useState<Dia[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const [quantidadeDias, setQuantidadeDias] = useState(7);
 
   useEffect(() => {
-    carregarDados();
-  }, [dataInicio, dataFim]);
+    let ativo = true;
 
-  function criarDataLocal(
-    valor: string,
-    finalDoDia = false
-  ) {
-    const [ano, mes, dia] = valor
-      .split("-")
-      .map(Number);
+    async function carregarDados() {
+      setCarregando(true);
+      setErro(null);
+      setHoverIndex(null);
 
-    const data = new Date(
-      ano,
-      mes - 1,
-      dia
-    );
+      try {
+        const { data: auth, error: erroAuth } =
+          await supabase.auth.getUser();
 
-    if (finalDoDia) {
-      data.setHours(
-        23,
-        59,
-        59,
-        999
-      );
-    } else {
-      data.setHours(
-        0,
-        0,
-        0,
-        0
-      );
-    }
+        if (erroAuth) throw erroAuth;
 
-    return data;
-  }
+        if (!auth.user) {
+          throw new Error("Usuário não autenticado.");
+        }
 
-  function formatarChaveData(
-    data: Date
-  ) {
-    const ano =
-      data.getFullYear();
+        const hoje = new Date();
 
-    const mes = String(
-      data.getMonth() + 1
-    ).padStart(2, "0");
+        const inicioAtual = dataInicio
+          ? criarDataLocal(dataInicio)
+          : new Date(hoje);
 
-    const dia = String(
-      data.getDate()
-    ).padStart(2, "0");
+        const fimAtual = dataFim
+          ? criarDataLocal(dataFim, true)
+          : new Date(hoje);
 
-    return `${ano}-${mes}-${dia}`;
-  }
+        if (!dataInicio) {
+          inicioAtual.setHours(0, 0, 0, 0);
+          inicioAtual.setDate(inicioAtual.getDate() - 6);
+        }
 
-  function criarDias(
-    inicio: Date,
-    quantidade: number
-  ) {
-    const resultado: Dia[] = [];
+        if (!dataFim) {
+          fimAtual.setHours(23, 59, 59, 999);
+        }
 
-    for (
-      let index = 0;
-      index < quantidade;
-      index++
-    ) {
-      const dataDia =
-        new Date(inicio);
+        if (inicioAtual > fimAtual) {
+          throw new Error(
+            "A data inicial não pode ser maior que a final."
+          );
+        }
 
-      dataDia.setDate(
-        dataDia.getDate() +
-          index
-      );
-
-      resultado.push({
-        data:
-          formatarChaveData(
-            dataDia
-          ),
-
-        label: dataDia
-          .toLocaleDateString(
-            "pt-BR",
-            {
-              day: "2-digit",
-              month: "short",
-            }
-          )
-          .replace(".", ""),
-
-        valor: 0,
-      });
-    }
-
-    return resultado;
-  }
-
-  async function carregarDados() {
-    setCarregando(true);
-    setHoverIndex(null);
-
-    try {
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getUser();
-
-      if (!user) {
-        setDadosAtuais([]);
-        setDadosAnteriores([]);
-        return;
-      }
-
-      /*
-       * ============================================================
-       * PERÍODO ATUAL
-       * ============================================================
-       */
-
-      const hoje = new Date();
-
-      const inicioAtual =
-        dataInicio
-          ? criarDataLocal(
-              dataInicio
-            )
-          : (() => {
-              const data =
-                new Date();
-
-              data.setHours(
-                0,
-                0,
-                0,
-                0
-              );
-
-              data.setDate(
-                data.getDate() -
-                  6
-              );
-
-              return data;
-            })();
-
-      const fimAtual =
-        dataFim
-          ? criarDataLocal(
-              dataFim,
-              true
-            )
-          : (() => {
-              const data =
-                new Date();
-
-              data.setHours(
-                23,
-                59,
-                59,
-                999
-              );
-
-              return data;
-            })();
-
-      if (
-        inicioAtual >
-        fimAtual
-      ) {
-        console.error(
-          "A data inicial não pode ser maior que a data final."
-        );
-
-        setDadosAtuais([]);
-        setDadosAnteriores([]);
-        return;
-      }
-
-      /*
-       * ============================================================
-       * QUANTIDADE DE DIAS
-       * ============================================================
-       */
-
-      const inicioSomenteData =
-        new Date(
-          inicioAtual
-        );
-
-      inicioSomenteData.setHours(
-        0,
-        0,
-        0,
-        0
-      );
-
-      const fimSomenteData =
-        new Date(
+        const quantidade = quantidadeDiasEntre(
+          inicioAtual,
           fimAtual
         );
 
-      fimSomenteData.setHours(
-        0,
-        0,
-        0,
-        0
-      );
+        const inicioAnterior = new Date(inicioAtual);
+        inicioAnterior.setDate(
+          inicioAnterior.getDate() - quantidade
+        );
 
-      const diferencaMs =
-        fimSomenteData.getTime() -
-        inicioSomenteData.getTime();
+        const fimAnterior = new Date(inicioAtual);
+        fimAnterior.setMilliseconds(-1);
 
-      const diasPeriodo =
-        Math.floor(
-          diferencaMs /
-            (
-              1000 *
-              60 *
-              60 *
-              24
+        const atuais = criarDias(
+          inicioAtual,
+          quantidade
+        );
+
+        const anteriores = criarDias(
+          inicioAnterior,
+          quantidade
+        );
+
+        const mapaAtual = new Map(
+          atuais.map((dia) => [dia.data, dia])
+        );
+
+        const mapaAnterior = new Map(
+          anteriores.map((dia) => [dia.data, dia])
+        );
+
+        const vendas: Venda[] = [];
+        const lote = 1000;
+
+        for (let pagina = 0; ; pagina++) {
+          const { data, error } = await supabase
+            .from("vendas")
+            .select(
+              "data_venda,faturamento,promocao,lucro"
             )
-        ) + 1;
+            .eq("user_id", auth.user.id)
+            .gte(
+              "data_venda",
+              inicioAnterior.toISOString()
+            )
+            .lte(
+              "data_venda",
+              fimAtual.toISOString()
+            )
+            .order("data_venda", {
+              ascending: true,
+            })
+            .order("id", {
+              ascending: true,
+            })
+            .range(
+              pagina * lote,
+              (pagina + 1) * lote - 1
+            );
 
-      setQuantidadeDias(
-        diasPeriodo
-      );
+          if (error) throw error;
 
-      /*
-       * ============================================================
-       * PERÍODO ANTERIOR
-       *
-       * Exemplo:
-       *
-       * Atual:
-       * 06/08 até 12/08
-       *
-       * Anterior:
-       * 30/07 até 05/08
-       * ============================================================
-       */
+          const registros = (data ?? []) as Venda[];
 
-      const fimAnterior =
-        new Date(
-          inicioAtual
-        );
+          vendas.push(...registros);
 
-      fimAnterior.setMilliseconds(
-        -1
-      );
+          if (registros.length < lote) break;
+        }
 
-      const inicioAnterior =
-        new Date(
-          inicioAtual
-        );
+        for (const venda of vendas) {
+          const dataVenda = new Date(venda.data_venda);
+          const chave = chaveData(dataVenda);
 
-      inicioAnterior.setDate(
-        inicioAnterior.getDate() -
-          diasPeriodo
-      );
+          let dia: Dia | undefined;
 
-      /*
-       * ============================================================
-       * CONSULTA
-       * ============================================================
-       */
-
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("vendas")
-        .select(
-          "data_venda, faturamento"
-        )
-        .eq(
-          "user_id",
-          user.id
-        )
-        .gte(
-          "data_venda",
-          inicioAnterior.toISOString()
-        )
-        .lte(
-          "data_venda",
-          fimAtual.toISOString()
-        )
-        .order(
-          "data_venda",
-          {
-            ascending: true,
+          if (
+            dataVenda >= inicioAtual &&
+            dataVenda <= fimAtual
+          ) {
+            dia = mapaAtual.get(chave);
+          } else if (
+            dataVenda >= inicioAnterior &&
+            dataVenda <= fimAnterior
+          ) {
+            dia = mapaAnterior.get(chave);
           }
-        );
 
-      if (error) {
-        console.error(
-          "Erro ao carregar gráfico de vendas:",
-          error
+          if (!dia) continue;
+
+          dia.faturamento += faturamentoAposPromocao(venda);
+
+          // Preserva o lucro líquido já registrado
+          // na venda, sem recalcular os custos.
+          dia.lucro += numero(venda.lucro);
+        }
+
+        if (!ativo) return;
+
+        setDadosAtuais(atuais);
+        setDadosAnteriores(anteriores);
+      } catch (e) {
+        if (!ativo) return;
+
+        setErro(
+          e instanceof Error
+            ? e.message
+            : "Não foi possível carregar o gráfico."
         );
 
         setDadosAtuais([]);
         setDadosAnteriores([]);
-        return;
-      }
-
-      const vendas =
-        (data || []) as Venda[];
-
-      /*
-       * ============================================================
-       * CRIA OS DIAS DOS DOIS PERÍODOS
-       * ============================================================
-       */
-
-      const atuais =
-        criarDias(
-          inicioAtual,
-          diasPeriodo
-        );
-
-      const anteriores =
-        criarDias(
-          inicioAnterior,
-          diasPeriodo
-        );
-
-      /*
-       * ============================================================
-       * DISTRIBUI FATURAMENTO
-       * ============================================================
-       */
-
-      vendas.forEach(
-        (venda) => {
-          const dataVenda =
-            new Date(
-              venda.data_venda
-            );
-
-          const valor =
-            Number(
-              venda.faturamento ??
-                0
-            );
-
-          if (
-            dataVenda >=
-              inicioAtual &&
-            dataVenda <=
-              fimAtual
-          ) {
-            const chave =
-              formatarChaveData(
-                dataVenda
-              );
-
-            const dia =
-              atuais.find(
-                (item) =>
-                  item.data ===
-                  chave
-              );
-
-            if (dia) {
-              dia.valor +=
-                valor;
-            }
-          } else if (
-            dataVenda >=
-              inicioAnterior &&
-            dataVenda <=
-              fimAnterior
-          ) {
-            const chave =
-              formatarChaveData(
-                dataVenda
-              );
-
-            const dia =
-              anteriores.find(
-                (item) =>
-                  item.data ===
-                  chave
-              );
-
-            if (dia) {
-              dia.valor +=
-                valor;
-            }
-          }
+      } finally {
+        if (ativo) {
+          setCarregando(false);
         }
-      );
-
-      setDadosAtuais(
-        atuais
-      );
-
-      setDadosAnteriores(
-        anteriores
-      );
-    } catch (error) {
-      console.error(
-        "Erro inesperado ao carregar gráfico de vendas:",
-        error
-      );
-
-      setDadosAtuais([]);
-      setDadosAnteriores([]);
-    } finally {
-      setCarregando(false);
-    }
-  }
-
-  function formatarMoeda(
-    valor: number
-  ) {
-    return valor.toLocaleString(
-      "pt-BR",
-      {
-        style: "currency",
-        currency: "BRL",
       }
-    );
-  }
-
-  function formatarEixo(
-    valor: number
-  ) {
-    if (valor <= 0) {
-      return "R$ 0";
     }
 
-    if (
-      valor >=
-      1000000
-    ) {
-      return `R$ ${(
-        valor / 1000000
-      )
-        .toFixed(1)
-        .replace(
-          ".",
-          ","
-        )}M`;
-    }
+    void carregarDados();
 
-    if (
-      valor >= 1000
-    ) {
-      return `R$ ${(
-        valor / 1000
-      )
-        .toFixed(0)
-        .replace(
-          ".",
-          ","
-        )}k`;
-    }
+    return () => {
+      ativo = false;
+    };
+  }, [dataInicio, dataFim]);
 
-    return `R$ ${valor.toFixed(
+  const quantidadeDias = dadosAtuais.length;
+
+  const totais = useMemo(() => {
+    const faturamento = dadosAtuais.reduce(
+      (total, dia) => total + dia.faturamento,
       0
-    )}`;
-  }
+    );
 
-  function calcularEscala(
-    valor: number
-  ) {
-    if (valor <= 0) {
-      return 0;
-    }
+    const lucro = dadosAtuais.reduce(
+      (total, dia) => total + dia.lucro,
+      0
+    );
 
-    const magnitude =
-      Math.pow(
-        10,
-        Math.floor(
-          Math.log10(
-            valor
-          )
-        )
-      );
+    const anterior = dadosAnteriores.reduce(
+      (total, dia) => total + dia.faturamento,
+      0
+    );
 
-    const normalizado =
-      valor /
-      magnitude;
+    return { faturamento, lucro, anterior };
+  }, [dadosAtuais, dadosAnteriores]);
 
-    if (
-      normalizado <= 1
-    ) {
-      return magnitude;
-    }
+  const temBaseAnterior = totais.anterior > 0;
 
-    if (
-      normalizado <= 2
-    ) {
-      return (
-        2 *
-        magnitude
-      );
-    }
+  const variacao = temBaseAnterior
+    ? ((totais.faturamento - totais.anterior) /
+        totais.anterior) *
+      100
+    : 0;
 
-    if (
-      normalizado <= 5
-    ) {
-      return (
-        5 *
-        magnitude
-      );
-    }
+  const escala = useMemo(() => {
+    const valores = dadosAtuais.flatMap((dia) => [
+      dia.faturamento,
+      dia.lucro,
+    ]);
 
+    const minimo = Math.min(0, ...valores);
+    const maximo = Math.max(0, ...valores);
+
+    const superior = escalaArredondada(maximo);
+
+    const inferior =
+      minimo < 0
+        ? -escalaArredondada(Math.abs(minimo))
+        : 0;
+
+    const finalSuperior =
+      superior === inferior ? superior + 1 : superior;
+
+    return {
+      minimo: inferior,
+      maximo: finalSuperior,
+      amplitude: finalSuperior - inferior,
+    };
+  }, [dadosAtuais]);
+
+  function posicaoY(valor: number): number {
     return (
-      10 *
-      magnitude
+      TOPO +
+      ((escala.maximo - valor) / escala.amplitude) *
+        ALTURA_GRAFICO
     );
   }
 
-  /*
-   * ============================================================
-   * TOTAIS
-   * ============================================================
-   */
-
-  const faturamentoAtual =
-    dadosAtuais.reduce(
-      (
-        total,
-        item
-      ) =>
-        total +
-        item.valor,
-      0
-    );
-
-  const faturamentoAnterior =
-    dadosAnteriores.reduce(
-      (
-        total,
-        item
-      ) =>
-        total +
-        item.valor,
-      0
-    );
-
-  const temBaseAnterior = faturamentoAnterior > 0;
-
-  const variacao =
-    faturamentoAnterior > 0
-      ? (
-          (
-            faturamentoAtual -
-            faturamentoAnterior
-          ) /
-          faturamentoAnterior
-        ) * 100
-      : 0;
-
-  /*
-   * ============================================================
-   * ESCALA
-   * ============================================================
-   */
-
-  const maiorFaturamento =
-    Math.max(
-      ...dadosAtuais.map(
-        (item) =>
-          item.valor
-      ),
-
-      ...dadosAnteriores.map(
-        (item) =>
-          item.valor
-      ),
-
-      0
-    );
-
-  const temVendas =
-    maiorFaturamento > 0;
-
-  const maiorValor =
-    temVendas
-      ? calcularEscala(
-          maiorFaturamento
-        )
-      : 0;
-
-  /*
-   * ============================================================
-   * SVG
-   * ============================================================
-   */
-
-  const largura = 1000;
-  const altura = 220;
-
-  const paddingEsquerda =
-    62;
-
-  const paddingDireita =
-    12;
-
-  const paddingTopo =
-    12;
-
-  const paddingBaixo =
-    32;
-
-  const larguraGrafico =
-    largura -
-    paddingEsquerda -
-    paddingDireita;
-
-  const alturaGrafico =
-    altura -
-    paddingTopo -
-    paddingBaixo;
-
-  /*
-   * ============================================================
-   * PONTOS ATUAIS
-   * ============================================================
-   */
-
-  const pontosAtuais =
-    useMemo<Ponto[]>(
-      () => {
-        if (
-          !dadosAtuais.length
-        ) {
-          return [];
-        }
-
-        return dadosAtuais.map(
-          (
-            item,
-            index
-          ) => {
-            const x =
-              paddingEsquerda +
-              (
-                index /
-                Math.max(
-                  dadosAtuais.length -
-                    1,
-                  1
-                )
-              ) *
-                larguraGrafico;
-
-            const y =
-              temVendas
-                ? paddingTopo +
-                  alturaGrafico -
-                  (
-                    item.valor /
-                    maiorValor
-                  ) *
-                    alturaGrafico
-                : paddingTopo +
-                  alturaGrafico;
-
-            return {
-              ...item,
-              x,
-              y,
-            };
-          }
-        );
-      },
-      [
-        dadosAtuais,
-        maiorValor,
-        larguraGrafico,
-        alturaGrafico,
-        temVendas,
-      ]
-    );
-
-  /*
-   * ============================================================
-   * PONTOS ANTERIORES
-   * ============================================================
-   */
-
-  const pontosAnteriores =
-    useMemo<Ponto[]>(
-      () => {
-        if (
-          !dadosAnteriores.length
-        ) {
-          return [];
-        }
-
-        return dadosAnteriores.map(
-          (
-            item,
-            index
-          ) => {
-            const x =
-              paddingEsquerda +
-              (
-                index /
-                Math.max(
-                  dadosAnteriores.length -
-                    1,
-                  1
-                )
-              ) *
-                larguraGrafico;
-
-            const y =
-              temVendas
-                ? paddingTopo +
-                  alturaGrafico -
-                  (
-                    item.valor /
-                    maiorValor
-                  ) *
-                    alturaGrafico
-                : paddingTopo +
-                  alturaGrafico;
-
-            return {
-              ...item,
-              x,
-              y,
-            };
-          }
-        );
-      },
-      [
-        dadosAnteriores,
-        maiorValor,
-        larguraGrafico,
-        alturaGrafico,
-        temVendas,
-      ]
-    );
-
-  /*
-   * ============================================================
-   * LINHA SUAVE
-   * ============================================================
-   */
-
-  function criarLinhaSuave(
-    pontos: Ponto[]
-  ) {
-    if (
-      !pontos.length
-    ) {
-      return "";
-    }
-
-    if (
-      pontos.length ===
-      1
-    ) {
-      return `M ${pontos[0].x} ${pontos[0].y}`;
-    }
-
-    let caminho =
-      `M ${pontos[0].x} ${pontos[0].y}`;
-
-    for (
-      let i = 0;
-      i <
-      pontos.length - 1;
-      i++
-    ) {
-      const atual =
-        pontos[i];
-
-      const proximo =
-        pontos[i + 1];
-
-      const meioX =
-        (
-          atual.x +
-          proximo.x
-        ) / 2;
-
-      caminho += `
-        C
-        ${meioX} ${atual.y},
-        ${meioX} ${proximo.y},
-        ${proximo.x} ${proximo.y}
-      `;
-    }
-
-    return caminho;
+  function criarPontos(
+    dados: Dia[],
+    campo: "faturamento" | "lucro"
+  ): Ponto[] {
+    return dados.map((dia, index) => ({
+      x:
+        ESQUERDA +
+        (index / Math.max(dados.length - 1, 1)) *
+          LARGURA_GRAFICO,
+      y: posicaoY(dia[campo]),
+    }));
   }
 
-  const linhaAtual =
-    criarLinhaSuave(
-      pontosAtuais
-    );
+  const pontosFaturamento = criarPontos(
+    dadosAtuais,
+    "faturamento"
+  );
 
-  const linhaAnterior =
-    criarLinhaSuave(
-      pontosAnteriores
-    );
+  const pontosLucro = criarPontos(
+    dadosAtuais,
+    "lucro"
+  );
 
-  const areaAtual =
-    pontosAtuais.length >
-    0
-      ? `${linhaAtual}
-         L ${
-           pontosAtuais[
-             pontosAtuais.length -
-               1
-           ].x
-         }
-         ${
-           paddingTopo +
-           alturaGrafico
-         }
-         L ${
-           pontosAtuais[0]
-             .x
-         }
-         ${
-           paddingTopo +
-           alturaGrafico
-         }
+  const linhaFaturamento = criarLinha(
+    pontosFaturamento
+  );
+
+  const linhaLucro = criarLinha(pontosLucro);
+
+  const areaFaturamento =
+    pontosFaturamento.length > 0
+      ? `${linhaFaturamento}
+         L ${pontosFaturamento[pontosFaturamento.length - 1].x} ${posicaoY(0)}
+         L ${pontosFaturamento[0].x} ${posicaoY(0)}
          Z`
       : "";
 
-  const linhasEixo = [
-    1,
-    0.75,
-    0.5,
-    0.25,
-    0,
-  ];
+  const temMovimento = dadosAtuais.some(
+    (dia) => dia.faturamento !== 0 || dia.lucro !== 0
+  );
 
-  /*
-   * ============================================================
-   * QUANTIDADE DE LABELS
-   * ============================================================
-   */
+  const diaSelecionado =
+    hoverIndex !== null
+      ? dadosAtuais[hoverIndex]
+      : undefined;
 
-  function mostrarLabel(
-    index: number
-  ) {
-    if (
-      quantidadeDias <= 7
-    ) {
-      return true;
-    }
-
-    if (
-      quantidadeDias <= 15
-    ) {
-      return (
-        index % 2 === 0
-      );
-    }
-
-    if (
-      quantidadeDias <= 30
-    ) {
-      return (
-        index % 5 === 0
-      );
-    }
-
-    if (
-      quantidadeDias <= 60
-    ) {
-      return (
-        index % 10 ===
-        0
-      );
-    }
-
-    return (
-      index % 15 === 0
-    );
-  }
+  const posicaoTooltip =
+    hoverIndex !== null && pontosFaturamento[hoverIndex]
+      ? Math.min(
+          88,
+          Math.max(
+            12,
+            (pontosFaturamento[hoverIndex].x / LARGURA) *
+              100
+          )
+        )
+      : 50;
 
   return (
-    <div
-      className="
-        relative
-        h-[310px]
-        overflow-hidden
-        rounded-[16px]
-        border
-        border-[#203753]
-        bg-[#0b1d33]
-        px-4
-        py-3
-        shadow-[0_12px_36px_rgba(0,0,0,0.18)]
-      "
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-orange-500/[0.045] to-transparent" />
+    <div className="relative flex h-full min-h-[340px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[#0B2039] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-5">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-orange-500/[0.035] to-transparent" />
 
-      <div className="relative flex h-full flex-col">
+      {/* CABEÇALHO */}
+      <div className="relative flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400">
+            <TrendingUp size={20} />
+          </span>
 
-        {/* Cabeçalho no estilo Alcance */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400">
-              <BarChart3 size={20} strokeWidth={2.5} />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-[14px] font-bold text-white">Faturamento</h2>
-              <p className="mt-0.5 text-[10px] text-slate-400">
-                Evolução do faturamento no período selecionado
-              </p>
-            </div>
-          </div>
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-bold text-white">
+              Faturamento e Lucro Líquido
+            </h2>
 
-          {/* O período é controlado pelo filtro geral do Dashboard. */}
-          <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#28405e] bg-[#11243d] px-2.5 py-2 text-[10px] text-slate-300">
-            <CalendarDays size={13} className="text-orange-400" />
-            <span>{quantidadeDias} dias</span>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Evolução financeira no período selecionado
+            </p>
           </div>
         </div>
 
-        {/* Gráfico */}
-        <div className="relative mt-2 min-h-0 flex-1">
-          {carregando ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-orange-400" />
+        <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#28405E] bg-[#11243D] px-3 py-2 text-[11px] text-slate-300">
+          <CalendarDays
+            size={14}
+            className="text-orange-400"
+          />
 
-                Carregando...
-              </div>
-            </div>
-          ) : (
+          <span>
+            {quantidadeDias || "—"} dias
+          </span>
+        </div>
+      </div>
+
+      {/* LEGENDA */}
+      <div className="relative mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span className="h-[3px] w-5 rounded-full bg-orange-500" />
+          <span className="text-[11px] text-slate-300">
+            Faturamento
+          </span>
+          <span className="text-[11px] font-bold text-white">
+            {carregando ? "..." : moeda(totais.faturamento)}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="h-[3px] w-5 rounded-full bg-blue-500" />
+          <span className="text-[11px] text-slate-300">
+            Lucro líquido
+          </span>
+          <span
+            className={`text-[11px] font-bold ${
+              totais.lucro < 0
+                ? "text-red-400"
+                : "text-white"
+            }`}
+          >
+            {carregando ? "..." : moeda(totais.lucro)}
+          </span>
+        </div>
+      </div>
+
+      {/* GRÁFICO */}
+      <div className="relative mt-4 min-h-[210px] flex-1">
+        {erro ? (
+          <div
+            role="alert"
+            className="flex h-full items-center justify-center gap-2 text-sm text-red-300"
+          >
+            <AlertCircle size={18} />
+            {erro}
+          </div>
+        ) : carregando ? (
+          <div className="flex h-full items-center justify-center gap-2 text-xs text-slate-400">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-orange-400" />
+            Carregando gráfico...
+          </div>
+        ) : !temMovimento ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <TrendingUp
+              size={28}
+              className="mb-3 text-slate-600"
+            />
+            <p className="text-sm text-slate-300">
+              Sem movimentação no período
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              As vendas registradas aparecerão aqui.
+            </p>
+          </div>
+        ) : (
+          <>
             <svg
-              viewBox={`0 0 ${largura} ${altura}`}
+              viewBox={`0 0 ${LARGURA} ${ALTURA}`}
               preserveAspectRatio="none"
               className="h-full w-full overflow-visible"
-              onMouseLeave={() =>
-                setHoverIndex(
-                  null
-                )
-              }
+              role="img"
+              aria-label="Gráfico de faturamento e lucro líquido por dia"
+              onMouseLeave={() => setHoverIndex(null)}
             >
               <defs>
                 <linearGradient
-                  id="salesAreaGradient"
+                  id={gradientId}
                   x1="0"
                   y1="0"
                   x2="0"
@@ -987,15 +610,8 @@ export default function SalesChart({
                   <stop
                     offset="0%"
                     stopColor="#F97316"
-                    stopOpacity="0.26"
+                    stopOpacity="0.23"
                   />
-
-                  <stop
-                    offset="70%"
-                    stopColor="#F97316"
-                    stopOpacity="0.05"
-                  />
-
                   <stop
                     offset="100%"
                     stopColor="#F97316"
@@ -1004,357 +620,248 @@ export default function SalesChart({
                 </linearGradient>
               </defs>
 
-              {/* Linhas horizontais */}
-              {linhasEixo.map(
-                (
-                  percentual,
-                  index
-                ) => {
-                  const y =
-                    paddingTopo +
-                    alturaGrafico -
-                    percentual *
-                      alturaGrafico;
-
+              {/* LINHAS HORIZONTAIS */}
+              {[0, 0.25, 0.5, 0.75, 1].map(
+                (fracao) => {
                   const valor =
-                    temVendas
-                      ? maiorValor *
-                        percentual
-                      : 0;
+                    escala.minimo +
+                    escala.amplitude * fracao;
+
+                  const y = posicaoY(valor);
 
                   return (
-                    <g
-                      key={
-                        index
-                      }
-                    >
+                    <g key={fracao}>
                       <line
-                        x1={
-                          paddingEsquerda
-                        }
+                        x1={ESQUERDA}
                         y1={y}
-                        x2={
-                          largura -
-                          paddingDireita
-                        }
+                        x2={LARGURA - DIREITA}
                         y2={y}
-                        stroke="#243651"
+                        stroke="#263B55"
                         strokeWidth="1"
-                        strokeDasharray="3 5"
-                        opacity="0.75"
+                        strokeDasharray="4 6"
+                        opacity="0.8"
                       />
 
                       <text
                         x="0"
-                        y={y + 4}
-                        fill="#64748b"
-                        fontSize="15"
+                        y={y + 5}
+                        fill="#7C8DA4"
+                        fontSize="14"
                       >
-                        {formatarEixo(
-                          valor
-                        )}
+                        {moedaEixo(valor)}
                       </text>
                     </g>
                   );
                 }
               )}
 
-              {/* Período anterior */}
-              {linhaAnterior && (
+              {/* LINHA DO ZERO */}
+              <line
+                x1={ESQUERDA}
+                y1={posicaoY(0)}
+                x2={LARGURA - DIREITA}
+                y2={posicaoY(0)}
+                stroke="#526781"
+                strokeWidth="1"
+                opacity="0.6"
+              />
+
+              {/* ÁREA DO FATURAMENTO */}
+              {areaFaturamento && (
                 <path
-                  d={
-                    linhaAnterior
-                  }
-                  fill="none"
-                  stroke="#64748B"
-                  strokeWidth="1.5"
-                  strokeDasharray="6 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  opacity="0.65"
+                  d={areaFaturamento}
+                  fill={`url(#${gradientId})`}
                 />
               )}
 
-              {/* Área período atual */}
-              {areaAtual && (
-                <path
-                  d={areaAtual}
-                  fill="url(#salesAreaGradient)"
-                />
-              )}
+              {/* FATURAMENTO - LARANJA */}
+              <path
+                d={linhaFaturamento}
+                fill="none"
+                stroke="#F97316"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
 
-              {/* Linha atual */}
-              {linhaAtual && (
-                <path
-                  d={
-                    linhaAtual
-                  }
-                  fill="none"
-                  stroke="#F97316"
-                  strokeWidth="2.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
+              {/* LUCRO - AZUL */}
+              <path
+                d={linhaLucro}
+                fill="none"
+                stroke="#3B82F6"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
 
-              {/* Pontos atuais */}
-              {pontosAtuais.map(
-                (
-                  ponto,
-                  index
-                ) => {
-                  const ativo =
-                    hoverIndex ===
-                    index;
+              {/* PONTOS */}
+              {pontosFaturamento.map((ponto, index) => {
+                const pontoLucro = pontosLucro[index];
+                const ativo = hoverIndex === index;
 
-                  return (
-                    <g
-                      key={
-                        ponto.data
-                      }
-                    >
-                      <rect
-                        x={
-                          index ===
-                          0
-                            ? paddingEsquerda
-                            : (
-                                pontosAtuais[
-                                  index -
-                                    1
-                                ].x +
-                                ponto.x
-                              ) /
-                              2
-                        }
-                        y={
-                          paddingTopo
-                        }
-                        width={
-                          index ===
-                          pontosAtuais.length -
-                            1
-                            ? largura -
-                              paddingDireita -
-                              ponto.x
-                            : (
-                                pontosAtuais[
-                                  index +
-                                    1
-                                ].x -
-                                ponto.x
-                              ) /
-                              2
-                        }
-                        height={
-                          alturaGrafico
-                        }
-                        fill="transparent"
-                        onMouseEnter={() =>
-                          setHoverIndex(
-                            index
-                          )
-                        }
+                const xAnterior =
+                  index === 0
+                    ? ESQUERDA
+                    : (pontosFaturamento[index - 1].x +
+                        ponto.x) /
+                      2;
+
+                const xProximo =
+                  index === pontosFaturamento.length - 1
+                    ? LARGURA - DIREITA
+                    : (ponto.x +
+                        pontosFaturamento[index + 1].x) /
+                      2;
+
+                return (
+                  <g key={dadosAtuais[index].data}>
+                    {ativo && (
+                      <line
+                        x1={ponto.x}
+                        y1={TOPO}
+                        x2={ponto.x}
+                        y2={TOPO + ALTURA_GRAFICO}
+                        stroke="#64748B"
+                        strokeDasharray="5 5"
+                        opacity="0.8"
                       />
+                    )}
 
-                      {ativo && (
-                        <line
-                          x1={
-                            ponto.x
-                          }
-                          y1={
-                            paddingTopo
-                          }
-                          x2={
-                            ponto.x
-                          }
-                          y2={
-                            paddingTopo +
-                            alturaGrafico
-                          }
-                          stroke="#475569"
-                          strokeWidth="1"
-                          strokeDasharray="4 5"
-                        />
-                      )}
+                    <circle
+                      cx={ponto.x}
+                      cy={ponto.y}
+                      r={ativo ? 5 : 3}
+                      fill={ativo ? "#FFFFFF" : "#F97316"}
+                      stroke="#F97316"
+                      strokeWidth="2"
+                    />
 
-                      <circle
-                        cx={
-                          ponto.x
-                        }
-                        cy={
-                          ponto.y
-                        }
-                        r={
-                          ativo
-                            ? 5
-                            : 3
-                        }
+                    <circle
+                      cx={pontoLucro.x}
+                      cy={pontoLucro.y}
+                      r={ativo ? 5 : 3}
+                      fill={ativo ? "#FFFFFF" : "#3B82F6"}
+                      stroke="#3B82F6"
+                      strokeWidth="2"
+                    />
+
+                    {deveMostrarData(
+                      index,
+                      quantidadeDias
+                    ) && (
+                      <text
+                        x={ponto.x}
+                        y={ALTURA - 8}
+                        textAnchor="middle"
                         fill={
-                          ativo
-                            ? "#ffffff"
-                            : "#F97316"
+                          ativo ? "#FDBA74" : "#8191A8"
                         }
-                        stroke="#EA580C"
-                        strokeWidth={
-                          ativo
-                            ? 3
-                            : 1.5
-                        }
-                      />
+                        fontSize="14"
+                      >
+                        {dadosAtuais[index].label}
+                      </text>
+                    )}
 
-                      {mostrarLabel(
-                        index
-                      ) && (
-                        <text
-                          x={
-                            ponto.x
-                          }
-                          y={
-                            altura -
-                            7
-                          }
-                          textAnchor="middle"
-                          fill={
-                            ativo
-                              ? "#FDBA74"
-                              : "#64748B"
-                          }
-                          fontSize="14"
-                        >
-                          {
-                            ponto.label
-                          }
-                        </text>
+                    {/* ÁREA DE INTERAÇÃO */}
+                    <rect
+                      x={xAnterior}
+                      y={TOPO}
+                      width={Math.max(
+                        1,
+                        xProximo - xAnterior
                       )}
-                    </g>
-                  );
-                }
-              )}
+                      height={ALTURA_GRAFICO}
+                      fill="transparent"
+                      onMouseEnter={() =>
+                        setHoverIndex(index)
+                      }
+                    />
+                  </g>
+                );
+              })}
             </svg>
-          )}
 
-          {/* Tooltip */}
-          {!carregando &&
-            hoverIndex !==
-              null &&
-            pontosAtuais[
-              hoverIndex
-            ] && (
+            {/* TOOLTIP */}
+            {diaSelecionado && (
               <div
-                className="
-                  pointer-events-none
-                  absolute
-                  z-20
-                  min-w-[145px]
-                  -translate-x-1/2
-                  -translate-y-full
-                  rounded-lg
-                  border
-                  border-[#2b405d]
-                  bg-[#091525]
-                  px-2.5
-                  py-2
-                  shadow-[0_12px_30px_rgba(0,0,0,0.35)]
-                "
+                className="pointer-events-none absolute z-20 -translate-x-1/2 rounded-xl border border-[#304966] bg-[#071629] px-3 py-2.5 shadow-[0_15px_35px_rgba(0,0,0,0.4)]"
                 style={{
-                  left: `${
-                    (
-                      pontosAtuais[
-                        hoverIndex
-                      ].x /
-                      largura
-                    ) *
-                    100
-                  }%`,
-
-                  top: `${
-                    (
-                      pontosAtuais[
-                        hoverIndex
-                      ].y /
-                      altura
-                    ) *
-                    100
-                  }%`,
+                  left: `${posicaoTooltip}%`,
+                  top: 8,
                 }}
               >
-                <p className="text-[8px] text-slate-500">
-                  {
-                    pontosAtuais[
-                      hoverIndex
-                    ].label
-                  }
+                <p className="mb-2 text-[11px] font-semibold text-slate-200">
+                  {diaSelecionado.label}
                 </p>
 
-                <div className="mt-1 flex items-center justify-between gap-4">
-                  <span className="text-[8px] text-orange-400">
-                    Atual
+                <div className="flex items-center justify-between gap-5 text-[11px]">
+                  <span className="flex items-center gap-1.5 text-slate-300">
+                    <span className="h-2 w-2 rounded-full bg-orange-500" />
+                    Faturamento
                   </span>
 
-                  <span className="text-[10px] font-bold text-white">
-                    {formatarMoeda(
-                      pontosAtuais[
-                        hoverIndex
-                      ].valor
-                    )}
-                  </span>
+                  <strong className="text-white">
+                    {moeda(diaSelecionado.faturamento)}
+                  </strong>
                 </div>
 
-                <div className="mt-1 flex items-center justify-between gap-4">
-                  <span className="text-[8px] text-slate-500">
-                    Anterior
+                <div className="mt-1.5 flex items-center justify-between gap-5 text-[11px]">
+                  <span className="flex items-center gap-1.5 text-slate-300">
+                    <span className="h-2 w-2 rounded-full bg-blue-500" />
+                    Lucro
                   </span>
 
-                  <span className="text-[9px] font-semibold text-slate-300">
-                    {formatarMoeda(
-                      pontosAnteriores[
-                        hoverIndex
-                      ]?.valor ??
-                        0
-                    )}
-                  </span>
+                  <strong
+                    className={
+                      diaSelecionado.lucro < 0
+                        ? "text-red-400"
+                        : "text-white"
+                    }
+                  >
+                    {moeda(diaSelecionado.lucro)}
+                  </strong>
                 </div>
               </div>
             )}
-        </div>
+          </>
+        )}
+      </div>
 
-        {/* Rodapé */}
-        <div className="mt-1 flex items-center justify-between border-t border-[#233754]/60 pt-2">
-          <div>
-            <span className="text-[8px] text-slate-600">
-              Faturamento no período
-            </span>
-
-            {!carregando && (
-              <span
-                className={`ml-2 text-[9px] font-semibold ${
-                  !temBaseAnterior
-                    ? "text-slate-400"
-                    : variacao > 0
-                    ? "text-emerald-400"
-                    : variacao < 0
-                    ? "text-red-400"
-                    : "text-slate-400"
-                }`}
-              >
-                {temBaseAnterior
-                  ? `${variacao > 0 ? "+" : ""}${variacao
-                      .toFixed(1)
-                      .replace(".", ",")}% vs. período anterior`
-                  : "Sem base anterior"}
-              </span>
-            )}
-          </div>
-
-          <span className="text-[11px] font-bold text-white">
-            {carregando
-              ? "..."
-              : formatarMoeda(
-                  faturamentoAtual
-                )}
+      {/* RODAPÉ */}
+      <div className="relative mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#233754] pt-3">
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="text-slate-400">
+            Comparação de faturamento:
           </span>
+
+          {carregando ? (
+            <span className="text-slate-500">...</span>
+          ) : !temBaseAnterior ? (
+            <span className="text-slate-400">
+              Sem base anterior
+            </span>
+          ) : (
+            <span
+              className={`font-semibold ${
+                variacao > 0
+                  ? "text-emerald-400"
+                  : variacao < 0
+                  ? "text-red-400"
+                  : "text-slate-400"
+              }`}
+            >
+              {variacao > 0 ? "+" : ""}
+              {variacao.toFixed(1).replace(".", ",")}% vs.
+              período anterior
+            </span>
+          )}
         </div>
+
+        <span className="text-[12px] font-bold text-white">
+          {carregando
+            ? "..."
+            : moeda(totais.faturamento)}
+        </span>
       </div>
     </div>
   );
