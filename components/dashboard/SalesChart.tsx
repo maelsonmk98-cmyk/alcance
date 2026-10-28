@@ -30,11 +30,11 @@ type Ponto = {
 };
 
 const LARGURA = 1000;
-const ALTURA = 220;
+const ALTURA = 195;
 const ESQUERDA = 75;
 const DIREITA = 20;
-const TOPO = 12;
-const BAIXO = 30;
+const TOPO = 10;
+const BAIXO = 26;
 
 const LARGURA_GRAFICO = LARGURA - ESQUERDA - DIREITA;
 const ALTURA_GRAFICO = ALTURA - TOPO - BAIXO;
@@ -499,13 +499,13 @@ export default function SalesChart({
       : 50;
 
   return (
-    <div className="relative flex h-full min-h-[260px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[#0B2039] p-3 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-3.5">
+    <div className="relative flex h-full min-h-[225px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[#0B2039] p-2.5 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-3">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-orange-500/[0.035] to-transparent" />
 
       {/* CABEÇALHO */}
-      <div className="relative flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400">
+      <div className="relative flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-2">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400">
             <TrendingUp size={17} />
           </span>
 
@@ -520,7 +520,7 @@ export default function SalesChart({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#28405E] bg-[#11243D] px-3 py-2 text-[11px] text-slate-300">
+        <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#28405E] bg-[#11243D] px-2 py-1 text-[11px] text-slate-300">
           <CalendarDays
             size={14}
             className="text-orange-400"
@@ -533,7 +533,7 @@ export default function SalesChart({
       </div>
 
       {/* LEGENDA */}
-      <div className="relative mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+      <div className="relative mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="flex items-center gap-2">
           <span className="h-[3px] w-5 rounded-full bg-orange-500" />
           <span className="text-[11px] text-slate-300">
@@ -562,7 +562,7 @@ export default function SalesChart({
       </div>
 
       {/* GRÁFICO */}
-      <div className="relative mt-2 h-[160px] min-h-[160px] flex-1">
+      <div className="relative mt-1.5 h-[130px] min-h-[130px] flex-1">
         {erro ? (
           <div
             role="alert"
@@ -828,7 +828,7 @@ export default function SalesChart({
       </div>
 
       {/* RODAPÉ */}
-      <div className="relative mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#233754] pt-2">
+      <div className="relative mt-1.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#233754] pt-1.5">
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
           <span className="text-slate-400">
             Comparação de faturamento:
