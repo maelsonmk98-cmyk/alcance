@@ -245,7 +245,7 @@ const RESUMO_VISITAS_INICIAL: ResumoVisitasPerformance = {
 };
 
 type FiltroStatus = "todos" | "active" | "paused" | "closed";
-type Aba = "visao-geral" | "anuncios" | "vendas" | "ads" | "performance";
+type Aba = "visao-geral" | "anuncios" | "vendas" | "ads" | "performance" | "analise";
 
 const RESUMO_VENDAS_INICIAL: ResumoVendas = {
   pedidos: 0,
@@ -489,15 +489,15 @@ function AnunciosContent() {
   }, []);
 
   useEffect(() => {
-    if (conectado && abaAtiva === "vendas") carregarVendas();
+    if (conectado && (abaAtiva === "vendas" || abaAtiva === "analise")) carregarVendas();
   }, [conectado, abaAtiva, periodo]);
 
   useEffect(() => {
-    if (conectado && abaAtiva === "ads") carregarAds();
+    if (conectado && (abaAtiva === "ads" || abaAtiva === "analise")) carregarAds();
   }, [conectado, abaAtiva, periodo]);
 
   useEffect(() => {
-    if (conectado && abaAtiva === "performance") carregarPerformance();
+    if (conectado && (abaAtiva === "performance" || abaAtiva === "analise")) carregarPerformance();
   }, [conectado, abaAtiva, periodo]);
 
   const anunciosFiltrados = useMemo(() => {
@@ -648,9 +648,9 @@ function AnunciosContent() {
                 type="button"
                 onClick={() => {
                   carregarAnuncios(true);
-                  if (abaAtiva === "vendas") carregarVendas();
-                  if (abaAtiva === "ads") carregarAds();
-                  if (abaAtiva === "performance") carregarPerformance();
+                  if (abaAtiva === "vendas" || abaAtiva === "analise") carregarVendas();
+                  if (abaAtiva === "ads" || abaAtiva === "analise") carregarAds();
+                  if (abaAtiva === "performance" || abaAtiva === "analise") carregarPerformance();
                 }}
                 disabled={atualizando}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#1D3A5C] bg-[#0A1D34] px-4 text-[10px] font-bold text-slate-300 transition hover:border-blue-500/40 hover:text-white disabled:opacity-60"
@@ -760,6 +760,13 @@ function AnunciosContent() {
                   icon={<TrendingUp size={14} />}
                 >
                   Performance
+                </TabButton>
+                <TabButton
+                  ativa={abaAtiva === "analise"}
+                  onClick={() => setAbaAtiva("analise")}
+                  icon={<Target size={14} />}
+                >
+                  Análise Detalhada
                 </TabButton>
               </div>
             </div>
@@ -900,6 +907,18 @@ function AnunciosContent() {
               />
             )}
 
+            {abaAtiva === "analise" && (
+              <AnaliseDetalhada
+                anuncios={anuncios}
+                vendas={vendas}
+                produtosAds={produtosAds}
+                visitas={visitasPerformance}
+                periodo={periodo}
+                carregando={carregandoVendas || carregandoAds || carregandoPerformance}
+                erros={[erroVendas, erroAds, erroPerformance].filter(Boolean)}
+              />
+            )}
+
             {abaAtiva === "performance" && (
               <PerformanceAnuncios
                 carregando={carregandoPerformance}
@@ -912,6 +931,101 @@ function AnunciosContent() {
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+
+function AnaliseDetalhada({ anuncios, vendas, produtosAds, visitas, periodo, carregando, erros }: {
+  anuncios: Anuncio[];
+  vendas: VendaMercadoLivre[];
+  produtosAds: ProdutoAds[];
+  visitas: VisitaPerformance[];
+  periodo: string;
+  carregando: boolean;
+  erros: string[];
+}) {
+  const [buscaAnalise, setBuscaAnalise] = useState("");
+  const linhas = useMemo(() => {
+    const mapa = new Map<string, {
+      id: string; titulo: string; sku: string | null; impressoes: number;
+      cliques: number; visitas: number | null; vendas: number;
+      faturamento: number; investimento: number; receitaAds: number;
+    }>();
+    function obter(id: string) {
+      if (!mapa.has(id)) mapa.set(id, {
+        id, titulo: id, sku: null, impressoes: 0, cliques: 0,
+        visitas: null, vendas: 0, faturamento: 0, investimento: 0, receitaAds: 0,
+      });
+      return mapa.get(id)!;
+    }
+    anuncios.forEach(a => {
+      const linha = obter(a.id);
+      linha.titulo = a.titulo;
+      linha.sku = a.sku;
+    });
+    visitas.forEach(v => { if (v.item_id) obter(v.item_id).visitas = Number(v.total || 0); });
+    produtosAds.forEach(p => {
+      if (!p.item_id) return;
+      const linha = obter(p.item_id);
+      if (p.titulo && linha.titulo === linha.id) linha.titulo = p.titulo;
+      linha.impressoes += Number(p.impressoes || 0);
+      linha.cliques += Number(p.cliques || 0);
+      linha.investimento += Number(p.investimento || 0);
+      linha.receitaAds += Number(p.receita_ads || 0);
+    });
+    vendas.filter(v => v.status !== "cancelled").forEach(v => {
+      v.produtos?.forEach(p => {
+        if (!p.mlb) return;
+        const linha = obter(p.mlb);
+        if (linha.titulo === linha.id) linha.titulo = p.titulo;
+        if (!linha.sku) linha.sku = p.sku;
+        linha.vendas += Number(p.quantidade || 0);
+        linha.faturamento += Number(p.preco_unitario || 0) * Number(p.quantidade || 0);
+      });
+    });
+    return [...mapa.values()].sort((a,b) => b.faturamento - a.faturamento);
+  }, [anuncios, vendas, produtosAds, visitas]);
+  const filtradas = linhas.filter(l => `${l.titulo} ${l.id} ${l.sku || ""}`.toLowerCase().includes(buscaAnalise.toLowerCase().trim()));
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-[16px] font-bold text-white">Análise Detalhada por Produto</h2>
+        <p className="mt-1 text-[10px] text-slate-400">Vendas e Product Ads nos últimos {periodo} dias. Visitas históricas quando disponíveis.</p>
+      </div>
+      <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.06] px-4 py-3 text-[10px] leading-5 text-blue-200">
+        Impressões e cliques são de <strong>Product Ads</strong>, não de todos os anúncios. Visitas são históricas e não comparáveis diretamente ao período selecionado. Faturamento por produto é estimado pelo preço unitário dos itens dos pedidos; não contempla ajustes ou promoções de pedido. Carrinhos e margem líquida aguardam integração de dados confiáveis. ACOS usa apenas receita atribuída ao Ads.
+      </div>
+      {erros.map((erro, i) => <AvisoErro key={i} titulo="Falha em uma das fontes" descricao={erro} />)}
+      {carregando && <p className="text-[10px] text-blue-300">Atualizando dados de vendas, Ads e visitas...</p>}
+      <div className="overflow-hidden rounded-2xl border border-[#17304D] bg-[#081A2E]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#142B45] p-4">
+          <div><h3 className="text-[13px] font-bold text-white">Desempenho individual</h3><p className="text-[9px] text-slate-500">{filtradas.length} anúncios</p></div>
+          <input value={buscaAnalise} onChange={e => setBuscaAnalise(e.target.value)} placeholder="Buscar produto, SKU ou MLB..." className="h-10 w-full rounded-xl border border-[#1A3555] bg-[#061426] px-3 text-[10px] text-white outline-none sm:w-[290px]" />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1450px]">
+            <thead><tr className="border-b border-[#142B45] bg-[#07182B]">
+              {['Produto','Impressões Ads','Cliques Ads','Visitas históricas','Carrinhos','Vendas','Faturamento itens','Custo Ads','ACOS','Margem'].map(t => <Th key={t}>{t}</Th>)}
+            </tr></thead>
+            <tbody>{filtradas.map(l => (
+              <tr key={l.id} className="border-b border-[#122941] hover:bg-[#0B2038]">
+                <td className="px-5 py-3"><p className="max-w-[260px] truncate text-[10px] font-semibold text-white" title={l.titulo}>{l.titulo}</p><p className="mt-1 text-[8px] text-slate-500">{l.id} · {l.sku || 'Sem SKU'}</p></td>
+                <td className="px-5 py-3 text-[10px] text-slate-300">{formatarNumero(l.impressoes)}</td>
+                <td className="px-5 py-3 text-[10px] text-slate-300">{formatarNumero(l.cliques)}</td>
+                <td className="px-5 py-3 text-[10px] text-slate-300">{l.visitas === null ? '—' : formatarNumero(l.visitas)}</td>
+                <td className="px-5 py-3 text-[10px] text-slate-500">—</td>
+                <td className="px-5 py-3 text-[10px] font-bold text-white">{formatarNumero(l.vendas)}</td>
+                <td className="px-5 py-3 text-[10px] text-slate-300">{formatarMoeda(l.faturamento)}</td>
+                <td className="px-5 py-3 text-[10px] text-slate-300">{formatarMoeda(l.investimento)}</td>
+                <td className="px-5 py-3 text-[10px] font-semibold text-orange-400">{l.receitaAds > 0 ? formatarPercentual(l.investimento / l.receitaAds * 100) : '—'}</td>
+                <td className="px-5 py-3 text-[10px] text-slate-500">—</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          {!filtradas.length && <EmptyState titulo="Nenhum produto encontrado" descricao="Verifique a busca ou a sincronização." />}
+        </div>
       </div>
     </div>
   );
