@@ -164,7 +164,13 @@ export default function DashboardCards() {
         produto.estoque ?? 0
       );
 
-      return total + venda * quantidade;
+      const promocao = Number(produto.promocao ?? 0);
+      const descontoUnitario = Math.round(
+        (venda * (promocao / 100) + Number.EPSILON) * 100
+      ) / 100;
+      const precoAposPromocao = venda - descontoUnitario;
+
+      return total + precoAposPromocao * quantidade;
     },
     0
   );
@@ -244,7 +250,7 @@ export default function DashboardCards() {
       lineColor: "#a855f7",
     },
     {
-      title: "Margem Média",
+      title: "Margem",
       value: `${margemMedia.toFixed(2)}%`,
       variation: "6,1%",
       icon: TrendingUp,
