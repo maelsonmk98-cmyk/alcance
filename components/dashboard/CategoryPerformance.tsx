@@ -350,7 +350,7 @@ export default function CategoryPerformance({
   );
 
   return (
-    <section className="relative flex h-full min-h-[340px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[#0B2039] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-5">
+    <section className="relative flex h-full min-h-[250px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[#0B2039] p-3 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-3.5">
       {/* CABEÇALHO */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -363,13 +363,13 @@ export default function CategoryPerformance({
           </p>
         </div>
 
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
           <Layers3 size={18} />
         </span>
       </div>
 
       {/* CONTEÚDO */}
-      <div className="mt-5 flex min-h-0 flex-1 flex-col">
+      <div className="mt-3 flex min-h-0 flex-1 flex-col">
         {erro ? (
           <div
             role="alert"
@@ -398,7 +398,7 @@ export default function CategoryPerformance({
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="max-h-[190px] space-y-2.5 overflow-y-auto pr-1">
             {categorias.map((categoria, index) => {
               const cor = CORES[index % CORES.length];
 
@@ -412,7 +412,7 @@ export default function CategoryPerformance({
                   key={categoria.nome}
                   className="min-w-0"
                 >
-                  <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
+                  <div className="mb-1 flex min-w-0 items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <span
                         className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -435,7 +435,7 @@ export default function CategoryPerformance({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#1A304B]">
+                    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#1A304B]">
                       <div
                         className="h-full rounded-full transition-[width] duration-500"
                         style={{
@@ -460,13 +460,13 @@ export default function CategoryPerformance({
       </div>
 
       {/* RODAPÉ */}
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-[#233754] pt-3">
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#233754] pt-2">
         <div>
           <p className="text-[10px] text-slate-400">
             Faturamento por categoria
           </p>
 
-          <p className="mt-1 text-[16px] font-bold tabular-nums text-white">
+          <p className="mt-0.5 text-[14px] font-bold tabular-nums text-white">
             {carregando ? "..." : moeda(total)}
           </p>
         </div>
