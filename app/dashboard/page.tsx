@@ -1,8 +1,6 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays } from "lucide-react";
 import MainLayout from "@/components/layout/MainLayout";
 import VendasCards from "@/components/dashboard/VendasCards";
 import SalesChart from "@/components/dashboard/SalesChart";
@@ -57,7 +55,9 @@ function extrairPrimeiroNome(
 type PeriodoRapido = 7 | 30 | 90 | null;
 
 export default function DashboardPage() {
-  const [periodo, setPeriodo] = useState(obterPeriodoInicial);
+  const [periodo, setPeriodo] = useState(
+    obterPeriodoInicial
+  );
 
   const [periodoRapido, setPeriodoRapido] =
     useState<PeriodoRapido>(7);
@@ -70,7 +70,8 @@ export default function DashboardPage() {
     let ativo = true;
 
     async function carregarNomeUsuario() {
-      const { data, error } = await supabase.auth.getUser();
+      const { data, error } =
+        await supabase.auth.getUser();
 
       if (!ativo) return;
 
@@ -79,27 +80,30 @@ export default function DashboardPage() {
         return;
       }
 
-      const nome = extrairPrimeiroNome(
-        data.user.user_metadata as Record<string, unknown>
+      setNomeUsuario(
+        extrairPrimeiroNome(
+          data.user.user_metadata as
+            Record<string, unknown>
+        )
       );
-
-      setNomeUsuario(nome);
     }
 
     void carregarNomeUsuario();
 
     const { data: assinatura } =
-      supabase.auth.onAuthStateChange((_evento, sessao) => {
-        if (!ativo) return;
+      supabase.auth.onAuthStateChange(
+        (_evento, sessao) => {
+          if (!ativo) return;
 
-        const nome = extrairPrimeiroNome(
-          sessao?.user?.user_metadata as
-            | Record<string, unknown>
-            | undefined
-        );
-
-        setNomeUsuario(nome);
-      });
+          setNomeUsuario(
+            extrairPrimeiroNome(
+              sessao?.user?.user_metadata as
+                | Record<string, unknown>
+                | undefined
+            )
+          );
+        }
+      );
 
     return () => {
       ativo = false;
@@ -107,12 +111,17 @@ export default function DashboardPage() {
     };
   }, []);
 
-  function alterarPeriodo(inicio: string, fim: string) {
+  function alterarPeriodo(
+    inicio: string,
+    fim: string
+  ) {
     setPeriodo({ inicio, fim });
     setPeriodoRapido(null);
   }
 
-  function selecionarPeriodo(dias: 7 | 30 | 90) {
+  function selecionarPeriodo(
+    dias: 7 | 30 | 90
+  ) {
     const hoje = new Date();
     const inicio = new Date(hoje);
 
@@ -128,37 +137,35 @@ export default function DashboardPage() {
 
   return (
     <MainLayout fullWidth dark>
-      <main className="relative min-h-full overflow-hidden bg-[#061426] text-white">
+      <main className="relative min-h-full overflow-x-hidden bg-[#061426] text-white">
         {/* ILUMINAÇÃO DECORATIVA */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-[340px] bg-[radial-gradient(ellipse_at_75%_0%,rgba(249,115,22,0.07),transparent_48%),radial-gradient(ellipse_at_12%_0%,rgba(37,99,235,0.08),transparent_55%)]"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[220px] bg-[radial-gradient(ellipse_at_75%_0%,rgba(249,115,22,0.06),transparent_48%),radial-gradient(ellipse_at_12%_0%,rgba(37,99,235,0.07),transparent_55%)]"
         />
 
-        <div className="relative mx-auto w-full max-w-[1920px] space-y-4 px-4 py-5 lg:px-6 xl:px-7">
-          {/* CABEÇALHO */}
-          <header className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="relative mx-auto flex w-full max-w-[1920px] flex-col gap-3 px-3 py-3 lg:px-4 xl:gap-3 xl:px-5 xl:py-4">
+
+          {/* CABEÇALHO COMPACTO */}
+          <header className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0">
-              <h1 className="text-[27px] font-bold leading-tight tracking-[-0.04em] text-white sm:text-[32px]">
+              <h1 className="text-[24px] font-bold leading-tight tracking-[-0.04em] text-white xl:text-[27px]">
                 {nomeUsuario
                   ? `Olá, ${nomeUsuario} 👋`
                   : "Visão geral do negócio"}
               </h1>
 
-              <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-slate-400">
-                Acompanhe suas vendas, faturamento, receita líquida,
-                investimentos, custos, lucro, margem e ROI com dados reais.
+              <p className="mt-1 text-[11px] text-slate-400">
+                Acompanhe o desempenho das suas vendas
+                e a rentabilidade do seu negócio.
               </p>
             </div>
 
             {/* FILTROS DE PERÍODO */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex min-h-10 items-center gap-2 rounded-xl border border-[#203854] bg-[#0C2039] px-2 text-slate-300">
-                <CalendarDays
-                  size={16}
-                  className="shrink-0 text-slate-400"
-                />
 
+              {/* APENAS O CALENDÁRIO DO DATE RANGE PICKER */}
+              <div className="flex min-h-9 items-center rounded-xl border border-[#203854] bg-[#0C2039] px-2">
                 <DateRangePicker
                   dataInicio={dataInicio}
                   dataFim={dataFim}
@@ -166,27 +173,33 @@ export default function DashboardPage() {
                 />
               </div>
 
+              {/* FILTROS RÁPIDOS */}
               <div className="flex items-center gap-1 rounded-xl border border-[#203854] bg-[#0C2039] p-1">
-                {([7, 30, 90] as const).map((dias) => {
-                  const ativo = periodoRapido === dias;
+                {([7, 30, 90] as const).map(
+                  (dias) => {
+                    const ativo =
+                      periodoRapido === dias;
 
-                  return (
-                    <button
-                      key={dias}
-                      type="button"
-                      onClick={() => selecionarPeriodo(dias)}
-                      aria-pressed={ativo}
-                      className={[
-                        "rounded-lg px-3 py-2 text-[11px] font-semibold transition-all",
-                        ativo
-                          ? "bg-orange-500 text-white shadow-[0_4px_14px_rgba(249,115,22,0.25)]"
-                          : "text-slate-400 hover:bg-white/5 hover:text-white",
-                      ].join(" ")}
-                    >
-                      {dias} dias
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={dias}
+                        type="button"
+                        onClick={() =>
+                          selecionarPeriodo(dias)
+                        }
+                        aria-pressed={ativo}
+                        className={[
+                          "rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+                          ativo
+                            ? "bg-orange-500 text-white shadow-[0_4px_14px_rgba(249,115,22,0.25)]"
+                            : "text-slate-400 hover:bg-white/5 hover:text-white",
+                        ].join(" ")}
+                      >
+                        {dias} dias
+                      </button>
+                    );
+                  }
+                )}
               </div>
             </div>
           </header>
@@ -202,12 +215,12 @@ export default function DashboardPage() {
             />
           </section>
 
-          {/* FATURAMENTO E CANAIS */}
+          {/* GRÁFICOS PRINCIPAIS */}
           <section
-            aria-label="Visão de faturamento e canais"
-            className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]"
+            aria-label="Faturamento e canais"
+            className="grid min-w-0 grid-cols-1 items-stretch gap-3 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]"
           >
-            <div className="min-w-0 [&>div]:h-full [&>div]:min-h-[315px]">
+            <div className="min-w-0">
               <SalesChart
                 dataInicio={dataInicio}
                 dataFim={dataFim}
@@ -225,31 +238,29 @@ export default function DashboardPage() {
           {/* ANÁLISES COMPLEMENTARES */}
           <section
             aria-label="Análises complementares"
-            className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2 2xl:grid-cols-3"
+            className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-2 xl:grid-cols-3"
           >
-            <div className="min-w-0 [&>div]:h-full">
+            <div className="min-w-0">
               <TopProducts
                 dataInicio={dataInicio}
                 dataFim={dataFim}
               />
             </div>
 
-            <div className="min-w-0 [&>div]:h-full">
+            <div className="min-w-0">
               <CategoryPerformance
                 dataInicio={dataInicio}
                 dataFim={dataFim}
               />
             </div>
 
-            <div className="min-w-0 lg:col-span-2 2xl:col-span-1">
+            <div className="min-w-0 lg:col-span-2 xl:col-span-1">
               <FinancialSummary
                 dataInicio={dataInicio}
                 dataFim={dataFim}
               />
             </div>
           </section>
-
-          <div className="h-2" />
         </div>
       </main>
     </MainLayout>
