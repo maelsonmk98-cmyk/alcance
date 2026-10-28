@@ -328,7 +328,11 @@ export default function ProductsTable() {
     const lucro =
       calcularLucro(produto);
 
-    return (lucro / venda) * 100;
+    const promocao = Number(produto.promocao ?? 0);
+    const vendaAposPromocao = venda * (1 - promocao / 100);
+    return vendaAposPromocao > 0
+      ? (lucro / vendaAposPromocao) * 100
+      : 0;
   }
 
   function calcularRoi(produto: Produto) {
@@ -484,25 +488,29 @@ export default function ProductsTable() {
       0
     );
 
-  const margemMedia =
-    produtos.length === 0
-      ? 0
-      : produtos.reduce(
-          (total, produto) =>
-            total +
-            calcularMargem(produto),
-          0
-        ) / produtos.length;
+  // Mesma metodologia dos indicadores da página Estoque:
+  // valores totais ponderados pelas unidades em estoque.
+  const faturamentoPotencial = produtos.reduce((total, produto) => {
+    const venda = Number(produto.preco_venda ?? 0);
+    const promocao = Number(produto.promocao ?? 0);
+    const quantidade = Number(produto.estoque ?? 0);
+    return total + venda * (1 - promocao / 100) * quantidade;
+  }, 0);
 
-  const roiMedio =
-    produtos.length === 0
-      ? 0
-      : produtos.reduce(
-          (total, produto) =>
-            total +
-            calcularRoi(produto),
-          0
-        ) / produtos.length;
+  const lucroTotal = produtos.reduce((total, produto) => {
+    const quantidade = Number(produto.estoque ?? 0);
+    return total + calcularLucro(produto) * quantidade;
+  }, 0);
+
+  const margem =
+    faturamentoPotencial > 0
+      ? (lucroTotal / faturamentoPotencial) * 100
+      : 0;
+
+  const roi =
+    valorEstoque > 0
+      ? (lucroTotal / valorEstoque) * 100
+      : 0;
 
   /*
    * =========================================================
@@ -638,18 +646,18 @@ export default function ProductsTable() {
 
             <div>
               <p className="text-[11px] font-medium text-slate-400">
-                Margem Média
+                Margem
               </p>
 
               <p className="mt-1 text-[23px] font-bold text-white">
-                {margemMedia.toFixed(
+                {margem.toFixed(
                   2
                 )}
                 %
               </p>
 
               <p className="mt-1 text-[10px] text-slate-500">
-                Média dos produtos
+                Lucro sobre faturamento
               </p>
             </div>
           </div>
@@ -667,11 +675,11 @@ export default function ProductsTable() {
 
             <div>
               <p className="text-[11px] font-medium text-slate-400">
-                ROI Médio
+                ROI
               </p>
 
               <p className="mt-1 text-[23px] font-bold text-white">
-                {roiMedio.toFixed(2)}
+                {roi.toFixed(2)}
                 %
               </p>
 
