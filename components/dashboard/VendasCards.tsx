@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -188,7 +187,8 @@ function resumoDasVendas(vendas: Venda[]): Resumo {
       numero(venda.custo_unitario) * qtd;
 
     acc.quantidade += qtd;
-    acc.faturamento += detalhe.faturamento;
+    // Faturamento exibido = bruto menos promoção da venda.
+    acc.faturamento += detalhe.faturamento - detalhe.promocao;
     acc.receitaLiquida += detalhe.receitaLiquida;
     acc.comissoes += detalhe.comissao;
     acc.promocoes += detalhe.promocao;
@@ -667,7 +667,7 @@ export default function VendasCards({
                   <tr className="font-bold text-white">
                     <td className="px-2 py-3">TOTAL</td>
                     <td className="px-2 py-3">
-                      {moeda(atual.faturamento)}
+                      {moeda(atual.faturamento + atual.promocoes)}
                     </td>
                     <td className="px-2 py-3">
                       - {moeda(atual.promocoes)}
