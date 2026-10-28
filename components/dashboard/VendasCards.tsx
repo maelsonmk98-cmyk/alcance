@@ -293,11 +293,7 @@ function Indicador({
           </p>
           <p className="mt-0.5 text-[9px] text-slate-500">vs. anterior</p>
         </div>
-        <div aria-hidden="true" className={`hidden h-6 shrink-0 items-end gap-[3px] 2xl:flex opacity-65 ${cor.split(" ").find(c => c.startsWith("text-")) ?? "text-orange-400"}`}>
-          {[9, 16, 12, 23].map((altura, i) => (
-            <span key={i} className="w-[4px] rounded-t-[2px] bg-current" style={{ height: `${altura}px` }} />
-          ))}
-        </div>
+
       </div>
     </article>
   );
