@@ -319,7 +319,7 @@ export default function TopProducts({
   );
 
   return (
-    <section className="relative flex h-full min-h-[340px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[#0B2039] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-5">
+    <section className="relative flex h-full min-h-[250px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#1B3451] bg-[#0B2039] p-3 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-3.5">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-amber-500/[0.035] to-transparent" />
 
       {/* CABEÇALHO */}
@@ -340,14 +340,14 @@ export default function TopProducts({
       </div>
 
       {/* CABEÇALHO DA LISTA */}
-      <div className="relative mt-5 grid grid-cols-[minmax(0,1fr)_42px_96px] gap-2 border-b border-[#29415C] pb-2 text-[9px] font-semibold uppercase tracking-[0.07em] text-slate-400">
+      <div className="relative mt-2.5 grid grid-cols-[minmax(0,1fr)_42px_96px] gap-2 border-b border-[#29415C] pb-2 text-[9px] font-semibold uppercase tracking-[0.07em] text-slate-400">
         <span>Produto</span>
         <span className="text-right">Unid.</span>
         <span className="text-right">Faturamento</span>
       </div>
 
       {/* RANKING */}
-      <div className="relative min-h-[150px] flex-1">
+      <div className="relative min-h-[100px] flex-1">
         {erro ? (
           <div
             role="alert"
@@ -362,7 +362,7 @@ export default function TopProducts({
             Carregando produtos...
           </div>
         ) : produtos.length === 0 ? (
-          <div className="flex h-full min-h-[150px] flex-col items-center justify-center text-center">
+          <div className="flex h-full min-h-[100px] flex-col items-center justify-center text-center">
             <Package
               size={26}
               className="mb-3 text-slate-500"
@@ -389,11 +389,11 @@ export default function TopProducts({
               return (
                 <div
                   key={produto.chave}
-                  className="grid grid-cols-[minmax(0,1fr)_42px_96px] items-center gap-2 py-3"
+                  className="grid grid-cols-[minmax(0,1fr)_42px_96px] items-center gap-2 py-1.5"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold ${
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold ${
                         CORES_RANKING[index] ??
                         CORES_RANKING[4]
                       }`}
@@ -416,7 +416,7 @@ export default function TopProducts({
                         SKU: {produto.sku}
                       </p>
 
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#1A304B]">
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-[#1A304B]">
                         <div
                           className="h-full rounded-full bg-orange-500 transition-[width] duration-500"
                           style={{
@@ -443,7 +443,7 @@ export default function TopProducts({
                       )}
                     </p>
 
-                    <p className="mt-1 text-[10px] text-slate-500">
+                    <p className="mt-0.5 text-[10px] text-slate-500">
                       {percentual(produto.percentual)}
                     </p>
                   </div>
@@ -456,13 +456,13 @@ export default function TopProducts({
 
       {/* RESUMO */}
       {!carregando && !erro && produtos.length > 0 && (
-        <div className="relative mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#233754] pt-3">
+        <div className="relative mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#233754] pt-2">
           <div>
             <p className="text-[10px] text-slate-400">
               Unidades vendidas no período
             </p>
 
-            <p className="mt-1 text-[15px] font-bold tabular-nums text-white">
+            <p className="mt-0.5 text-[13px] font-bold tabular-nums text-white">
               {totalUnidades.toLocaleString("pt-BR")}
             </p>
           </div>
@@ -472,7 +472,7 @@ export default function TopProducts({
               Faturamento total
             </p>
 
-            <p className="mt-1 text-[15px] font-bold tabular-nums text-white">
+            <p className="mt-0.5 text-[13px] font-bold tabular-nums text-white">
               {moeda(totalFaturamentoCentavos / 100)}
             </p>
           </div>
@@ -482,7 +482,7 @@ export default function TopProducts({
       {/* LINK */}
       <Link
         href="/produtos"
-        className="relative mt-4 flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#2A4362] bg-[#112942] text-[11px] font-semibold text-slate-300 transition hover:border-orange-500/40 hover:bg-[#18334F] hover:text-white"
+        className="relative mt-2 flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#2A4362] bg-[#112942] text-[11px] font-semibold text-slate-300 transition hover:border-orange-500/40 hover:bg-[#18334F] hover:text-white"
       >
         Ver todos os produtos
         <ChevronRight size={14} />
