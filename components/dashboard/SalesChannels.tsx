@@ -147,6 +147,37 @@ export default function SalesChannels({ dataInicio, dataFim }: Props) {
           <p className="text-xs">Sem faturamento no período</p>
           <p className="mt-1 text-[10px] text-slate-500">Registre vendas para visualizar os canais.</p>
         </div>
+      ) : canais.length === 1 ? (
+        <div className="flex flex-1 flex-col justify-center gap-4 py-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] text-slate-400">Faturamento do canal</p>
+              <strong className="mt-1 block text-[25px] font-bold leading-none tracking-tight text-white">
+                {moeda(total)}
+              </strong>
+            </div>
+            <span className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-sm font-bold text-blue-300">
+              100,0%
+            </span>
+          </div>
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+              <span className="flex min-w-0 items-center gap-2 text-slate-200">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
+                <span className="truncate" title={canais[0].nome}>{canais[0].nome}</span>
+              </span>
+              <span className="shrink-0 font-semibold text-white">{moeda(canais[0].valor)}</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-[#263B55]">
+              <div className="h-full w-full rounded-full" style={{ backgroundColor: canais[0].cor }} />
+            </div>
+          </div>
+          {canais[0].nome === "Não informado" && (
+            <p className="text-[10px] leading-relaxed text-slate-500">
+              As vendas deste período ainda não possuem um canal identificado.
+            </p>
+          )}
+        </div>
       ) : (
         <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
           <div
