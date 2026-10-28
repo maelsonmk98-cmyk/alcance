@@ -283,114 +283,77 @@ export async function GET(
      * pois esse endpoint não aceita esse valor.
      */
 
-    const params =
-      new URLSearchParams({
-        limit:
-          "50",
+    const limite = 50;
+    const maxPaginas = 100;
+    const todosResultados: any[] = [];
+    let paging: unknown = null;
+    let paginasConsultadas = 0;
 
-        offset:
-          "0",
-
-        date_from:
-          dateFrom,
-
-        date_to:
-          dateTo,
-
-        metrics:
-          [
-            "clicks",
-            "prints",
-            "cost",
-            "cpc",
-            "acos",
-            "roas",
-            "direct_amount",
-            "indirect_amount",
-            "total_amount",
-            "direct_items_quantity",
-            "indirect_items_quantity",
-          ].join(","),
+    for (let pagina = 0; pagina < maxPaginas; pagina++) {
+      const params = new URLSearchParams({
+        limit: String(limite),
+        offset: String(pagina * limite),
+        date_from: dateFrom,
+        date_to: dateTo,
+        metrics: [
+          "clicks", "prints", "cost", "cpc", "acos", "roas",
+          "direct_amount", "indirect_amount", "total_amount",
+          "direct_items_quantity", "indirect_items_quantity",
+        ].join(","),
       });
 
-    const url =
-      `https://api.mercadolibre.com/marketplace/advertising/${siteId}` +
-      `/advertisers/${advertiserId}` +
-      `/product_ads/ads/search?${params.toString()}`;
+      const url =
+        `https://api.mercadolibre.com/marketplace/advertising/${siteId}` +
+        `/advertisers/${advertiserId}` +
+        `/product_ads/ads/search?${params.toString()}`;
 
-    const response =
-      await fetch(
-        url,
-        {
-          method:
-            "GET",
-
-          headers: {
-            Authorization:
-              `Bearer ${accessToken}`,
-
-            "Api-Version":
-              "1",
-          },
-
-          cache:
-            "no-store",
-        }
-      );
-
-    const data =
-      await response.json();
-
-    /*
-     * ============================================================
-     * 6. ERRO DA API
-     * ============================================================
-     */
-
-    if (!response.ok) {
-      console.error(
-        "Erro Product Ads produtos:",
-        data
-      );
-
-      return NextResponse.json(
-        {
-          mercado_ads:
-            true,
-
-          advertiser_id:
-            advertiserId,
-
-          site_id:
-            siteId,
-
-          periodo: {
-            dias,
-
-            date_from:
-              dateFrom,
-
-            date_to:
-              dateTo,
-          },
-
-          status:
-            response.status,
-
-          endpoint:
-            url,
-
-          error:
-            "Não foi possível consultar os produtos do Mercado Ads.",
-
-          details:
-            data,
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Api-Version": "1",
         },
-        {
-          status:
-            response.status,
-        }
-      );
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("Erro Product Ads produtos:", data);
+        return NextResponse.json(
+          {
+            mercado_ads: true,
+            advertiser_id: advertiserId,
+            site_id: siteId,
+            periodo: { dias, date_from: dateFrom, date_to: dateTo },
+            status: response.status,
+            endpoint: url,
+            error: "Não foi possível consultar os produtos do Mercado Ads.",
+            details: data,
+          },
+          { status: response.status }
+        );
+      }
+
+      if (!Array.isArray(data.results)) {
+        throw new Error("Resposta de Product Ads sem lista de resultados.");
+      }
+
+      const registros = data.results as any[];
+      todosResultados.push(...registros);
+      paging = data.paging ?? null;
+      paginasConsultadas++;
+
+      const totalApi = Number(data.paging?.total);
+      if (registros.length === 0) break;
+      if (Number.isFinite(totalApi) && totalApi >= 0) {
+        if (todosResultados.length >= totalApi) break;
+      } else if (registros.length < limite) {
+        break;
+      }
+
+      if (pagina === maxPaginas - 1) {
+        throw new Error("Limite de paginação de Product Ads atingido; resultado incompleto.");
+      }
     }
 
     /*
@@ -399,12 +362,7 @@ export async function GET(
      * ============================================================
      */
 
-    const resultados =
-      Array.isArray(
-        data.results
-      )
-        ? data.results
-        : [];
+    const resultados = todosResultados;
 
     let investimentoTotal =
       0;
@@ -743,9 +701,9 @@ export async function GET(
       produtos,
 
       diagnostico: {
-        paging:
-          data.paging ??
-          null,
+        paging,
+        paginas_consultadas: paginasConsultadas,
+        anuncios_recebidos: todosResultados.length,
       },
     });
   } catch (error) {
