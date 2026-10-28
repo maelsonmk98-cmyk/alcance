@@ -388,11 +388,11 @@ export default function FinancialSummary({
   ];
 
   return (
-    <section className="flex h-full min-h-[340px] min-w-0 flex-col rounded-2xl border border-[#1B3451] bg-[#0B2039] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-5">
+    <section className="flex h-full min-h-[250px] min-w-0 flex-col rounded-2xl border border-[#1B3451] bg-[#0B2039] p-3 shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-3.5">
       {/* CABEÇALHO */}
-      <div className="mb-5 flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
-          <BarChart3 size={18} />
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+          <BarChart3 size={16} />
         </span>
 
         <div className="min-w-0">
@@ -415,7 +415,7 @@ export default function FinancialSummary({
           {erro}
         </div>
       ) : (
-        <div className="grid flex-1 grid-cols-2 gap-3">
+        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2">
           {itens.map((item) => {
             const {
               titulo,
@@ -459,27 +459,27 @@ export default function FinancialSummary({
             return (
               <div
                 key={titulo}
-                className="flex min-w-0 flex-col rounded-xl border border-[#1D3856] bg-[#0E2743] p-3"
+                className="flex min-h-0 min-w-0 flex-col justify-between rounded-lg border border-[#1D3856] bg-[#0E2743] px-2.5 py-2"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-1.5">
                   <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${cor}`}
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${cor}`}
                   >
-                    <Icone size={17} />
+                    <Icone size={14} />
                   </span>
 
-                  <span className="text-[10px] font-medium text-slate-300">
+                  <span className="min-w-0 truncate text-[10px] font-medium text-slate-300">
                     {titulo}
                   </span>
                 </div>
 
-                <p className="mt-3 break-words text-[clamp(14px,1.35vw,20px)] font-bold tabular-nums text-white">
+                <p className="mt-1.5 break-words text-[clamp(13px,1.2vw,17px)] font-bold leading-tight tabular-nums text-white">
                   {carregando ? "..." : valor}
                 </p>
 
-                <div className="mt-auto pt-3">
+                <div className="mt-1.5">
                   <div
-                    className={`flex items-center gap-1 text-[10px] font-semibold ${corVariacao}`}
+                    className={`flex flex-wrap items-center gap-1 text-[9px] font-semibold leading-tight ${corVariacao}`}
                   >
                     {carregando ? null : positivo ? (
                       <ArrowUpRight size={14} />
@@ -510,7 +510,7 @@ export default function FinancialSummary({
                     </span>
                   </div>
 
-                  <p className="mt-1 text-[9px] text-slate-500">
+                  <p className="mt-0.5 text-[9px] leading-tight text-slate-500">
                     vs. período anterior
                   </p>
                 </div>
